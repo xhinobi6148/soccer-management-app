@@ -1,0 +1,1980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PitchSide - Soccer Sub & Time Tracker Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .soccer-pitch {
+            background: linear-gradient(180deg, #2e7d32 0%, #388e3c 100%);
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 40px rgba(0,0,0,0.3);
+        }
+        .pitch-lines {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            pointer-events: none;
+        }
+        .pitch-center-line {
+            position: absolute;
+            top: 50%; left: 0; right: 0;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.6);
+            transform: translateY(-50%);
+        }
+        .pitch-center-circle {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 120px; height: 120px;
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .pitch-center-dot {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 8px; height: 8px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .pitch-penalty-box {
+            position: absolute;
+            bottom: 0; left: 50%;
+            width: 60%; height: 22%;
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            border-bottom: none;
+            transform: translateX(-50%);
+        }
+        .pitch-goal-box {
+            position: absolute;
+            bottom: 0; left: 50%;
+            width: 25%; height: 8%;
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            border-bottom: none;
+            transform: translateX(-50%);
+        }
+        .player-token {
+            transition: transform 0.15s ease;
+            transform: translate(-50%, -50%);
+        }
+        .player-token:hover {
+            transform: translate(-50%, -50%) scale(1.08);
+            z-index: 20;
+        }
+        .token-selected {
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.9);
+            transform: translate(-50%, -50%) scale(1.12) !important;
+            z-index: 30;
+        }
+        .token-queued {
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.9);
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
+
+    <header class="bg-slate-800 border-b border-slate-700 px-4 py-3 sticky top-0 z-30 shadow-md">
+        <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-emerald-600 p-2.5 rounded-xl shadow-lg shadow-emerald-900/30">
+                    <i class="fa-solid fa-futbol text-white text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                        PitchSide <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/30">Match Pro</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Multi-Team, Batch Subs & Playing Time Manager</p>
+                </div>
+            </div>
+
+            <!-- Team Selector & Quick Management -->
+            <div class="flex items-center gap-2 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-slate-700">
+                <i class="fa-solid fa-shield-halved text-emerald-400 text-sm"></i>
+                <select id="team-selector" onchange="switchTeam(this.value)" class="bg-transparent text-sm font-semibold text-slate-200 focus:outline-none cursor-pointer">
+                    <!-- Populated dynamically -->
+                </select>
+                <button onclick="openTeamsModal()" title="Manage Teams" class="text-slate-400 hover:text-white px-1.5 py-1 transition text-xs bg-slate-800 rounded border border-slate-700">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+            </div>
+
+            <!-- Match Timer & Controls Widget -->
+            <div class="flex items-center gap-3 bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-700">
+                <div class="text-center px-2">
+                    <div id="match-clock" class="text-2xl font-black font-mono tracking-wider text-emerald-400">00:00</div>
+                    <div id="match-period" class="text-[10px] uppercase tracking-wider font-semibold text-slate-400">First Half</div>
+                </div>
+                <div class="flex items-center gap-1.5 border-l border-slate-700 pl-3">
+                    <button id="btn-start-pause" onclick="toggleMatchTimer()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-3.5 py-1.5 rounded-lg text-sm shadow transition flex items-center gap-1.5">
+                        <i id="timer-icon" class="fa-solid fa-play"></i> <span id="timer-btn-text">Start</span>
+                    </button>
+                    <button onclick="openSettingsModal()" title="Match Settings & Reset" class="bg-slate-700 hover:bg-slate-600 text-slate-300 px-2.5 py-1.5 rounded-lg text-sm transition flex items-center gap-1">
+                        <i class="fa-solid fa-rotate-right"></i> <span class="hidden sm:inline">Reset/Settings</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex items-center gap-2">
+                <button onclick="openShareModal()" class="bg-sky-600 hover:bg-sky-500 text-white px-3 py-1.5 rounded-xl text-sm font-medium transition flex items-center gap-2 shadow" title="Share App & Teams">
+                    <i class="fa-solid fa-share-nodes"></i> Share App & Teams
+                </button>
+                <button onclick="openRosterModal()" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-xl text-sm font-medium transition flex items-center gap-2 shadow">
+                    <i class="fa-solid fa-users text-emerald-400"></i> Roster (<span id="roster-count">0</span>)
+                </button>
+                <button onclick="openBatchSubModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-xl text-sm font-medium transition flex items-center gap-2 shadow relative">
+                    <i class="fa-solid fa-people-arrows"></i> Batch Sub
+                    <span id="batch-queue-badge" class="hidden absolute -top-1.5 -right-1.5 bg-amber-500 text-slate-950 text-[10px] font-extrabold px-1.5 py-0.2 rounded-full">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+        
+        <!-- Left Sidebar: Roster & Bench (4 cols) -->
+        <section class="lg:col-span-4 bg-slate-800/90 rounded-2xl border border-slate-700 p-4 flex flex-col gap-4 shadow-xl">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h2 class="font-semibold text-slate-200 flex items-center gap-2">
+                    <i class="fa-solid fa-bench-tree text-emerald-400"></i> Bench & Roster
+                </h2>
+                <div class="flex gap-2">
+                    <span class="text-xs bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg">
+                        On Field: <strong id="field-count" class="text-emerald-400">0</strong>/<span id="max-field-count">11</span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Quick Add Player inline form -->
+            <form id="inline-add-form" onsubmit="addPlayerInline(event)" class="flex gap-2">
+                <input type="text" id="inline-player-name" placeholder="Player Name..." autocomplete="off" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
+                <input type="number" id="inline-player-num" placeholder="#" min="1" max="99" class="w-16 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 text-center focus:outline-none focus:border-emerald-500">
+                <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl text-sm font-medium transition shadow">
+                    <i class="fa-solid fa-plus"></i>
+                </button>
+            </form>
+
+            <!-- Filter tabs for Roster -->
+            <div class="flex bg-slate-900 p-1 rounded-xl text-xs font-medium">
+                <button onclick="setRosterFilter('all')" id="filter-all" class="flex-1 py-1.5 rounded-lg bg-slate-700 text-white transition">All</button>
+                <button onclick="setRosterFilter('bench')" id="filter-bench" class="flex-1 py-1.5 rounded-lg text-slate-400 hover:text-white transition">Bench</button>
+                <button onclick="setRosterFilter('field')" id="filter-field" class="flex-1 py-1.5 rounded-lg text-slate-400 hover:text-white transition">On Field</button>
+            </div>
+
+            <!-- Player List container -->
+            <div id="roster-container" class="space-y-2 max-h-[calc(100vh-340px)] overflow-y-auto pr-1">
+                <!-- Dynamically populated players -->
+            </div>
+        </section>
+
+        <!-- Center: Interactive Soccer Pitch & Formation (5 cols) -->
+        <section id="pitch-card-section" class="lg:col-span-5 bg-slate-800/90 rounded-2xl border border-slate-700 p-4 flex flex-col gap-4 shadow-xl">
+            <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-700 pb-3">
+                <div class="flex items-center gap-2">
+                    <h2 class="font-semibold text-slate-200 flex items-center gap-2">
+                        <i class="fa-solid fa-chess-board text-emerald-400"></i> Formation
+                    </h2>
+                    <select id="formation-select" onchange="changeFormation(this.value)" class="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-emerald-500 font-medium">
+                        <optgroup label="11v11 Formations">
+                            <option value="4-4-2">4-4-2 Standard</option>
+                            <option value="4-3-3">4-3-3 Attacking</option>
+                            <option value="3-5-2">3-5-2 Midfield Heavy</option>
+                            <option value="4-2-3-1">4-2-3-1 Modern</option>
+                            <option value="3-4-3">3-4-3 Diamond</option>
+                        </optgroup>
+                        <optgroup label="9v9 Formations">
+                            <option value="3-2-3">3-2-3 Attacking (9v9)</option>
+                            <option value="3-3-2">3-3-2 Balanced (9v9)</option>
+                            <option value="2-4-2">2-4-2 Midfield Heavy (9v9)</option>
+                            <option value="4-3-1">4-3-1 Compact (9v9)</option>
+                        </optgroup>
+                        <optgroup label="7v7 Formations">
+                            <option value="2-3-1">2-3-1 Standard (7v7)</option>
+                            <option value="3-2-1">3-2-1 Defensive (7v7)</option>
+                            <option value="2-1-2-1">2-1-2-1 Diamond (7v7)</option>
+                            <option value="3-1-2">3-1-2 Balanced (7v7)</option>
+                            <option value="1-4-1">1-4-1 Midfield Heavy (7v7)</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="toggleFullscreenPitch()" title="Toggle Fullscreen Pitch Mode" class="bg-slate-700 hover:bg-slate-600 text-emerald-400 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+                        <i id="fullscreen-btn-icon" class="fa-solid fa-expand"></i> <span id="fullscreen-btn-text">Fullscreen</span>
+                    </button>
+                </div>
+            </div>
+
+            <div id="pitch-instruction" class="text-[11px] text-amber-400 bg-amber-950/40 px-2 py-1 rounded border border-amber-800/50 text-center">
+                Click player to sub/queue, or drag & drop to switch positions on field
+            </div>
+
+            <!-- Soccer Field View Container -->
+            <div id="soccer-field-wrapper" class="relative w-full aspect-[3/4] max-h-[580px] rounded-xl soccer-pitch shadow-inner border border-emerald-700/50 flex flex-col items-center justify-between p-4">
+                <div class="pitch-lines rounded-xl"></div>
+                <div class="pitch-center-line"></div>
+                <div class="pitch-center-circle"></div>
+                <div class="pitch-center-dot"></div>
+                <div class="pitch-penalty-box"></div>
+                <div class="pitch-goal-box"></div>
+
+                <!-- Position Tokens Container -->
+                <div id="pitch-positions" class="absolute inset-0 z-10 pointer-events-auto">
+                    <!-- Dynamically positioned player tokens -->
+                </div>
+            </div>
+            
+            <div class="text-[11px] text-slate-400 text-center flex items-center justify-center gap-3">
+                <span><i class="fa-solid fa-hand-pointer text-emerald-400"></i> Click player to sub or queue</span>
+                <span>•</span>
+                <span><i class="fa-solid fa-arrows-split-up-and-left text-sky-400"></i> Drag/Click to swap on field</span>
+            </div>
+        </section>
+
+        <!-- Right Sidebar: Playing Time & Sub Log (3 cols) -->
+        <section class="lg:col-span-3 bg-slate-800/90 rounded-2xl border border-slate-700 p-4 flex flex-col gap-4 shadow-xl">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h2 class="font-semibold text-slate-200 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-pie text-emerald-400"></i> Playing Time
+                </h2>
+                <button onclick="sortPlayingTime()" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-1 rounded-lg transition" title="Sort by playing time">
+                    <i class="fa-solid fa-arrow-down-wide-short"></i> Sort
+                </button>
+            </div>
+
+            <!-- Playing time distribution list -->
+            <div id="playing-time-container" class="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
+                <!-- Dynamically populated playing times -->
+            </div>
+
+            <div class="border-t border-slate-700 pt-3 mt-auto">
+                <h3 class="font-semibold text-xs uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5">
+                    <i class="fa-solid fa-clipboard-list"></i> Sub & Switch Log
+                </h3>
+                <div id="sub-log-container" class="space-y-1.5 max-h-[160px] overflow-y-auto text-xs pr-1 font-mono">
+                    <div class="text-slate-500 italic">No substitutions recorded yet.</div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Roster Management Modal -->
+    <div id="roster-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl flex flex-col gap-4 max-h-[90vh]">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-users-gear text-emerald-400"></i> Manage Full Roster (<span id="modal-team-name-label" class="text-emerald-300">Team</span>)
+                </h3>
+                <button onclick="closeRosterModal()" class="text-slate-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form onsubmit="addPlayerModalForm(event)" class="grid grid-cols-1 sm:grid-cols-12 gap-2 bg-slate-900 p-3 rounded-xl border border-slate-700">
+                <div class="sm:col-span-6">
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Player Name</label>
+                    <input type="text" id="modal-player-name" required placeholder="e.g. Alex Morgan" autocomplete="off" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
+                </div>
+                <div class="sm:col-span-3">
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Number</label>
+                    <input type="number" id="modal-player-num" min="1" max="99" required placeholder="10" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 text-center focus:outline-none focus:border-emerald-500">
+                </div>
+                <div class="sm:col-span-3 flex items-end">
+                    <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 rounded-lg text-sm transition shadow">
+                        <i class="fa-solid fa-user-plus mr-1"></i> Add
+                    </button>
+                </div>
+            </form>
+
+            <div class="flex justify-between items-center pt-2">
+                <span class="text-xs text-slate-400">Roster list (<span id="modal-roster-count">0</span> players)</span>
+                <div class="flex gap-2">
+                    <button onclick="loadSampleRoster()" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg transition font-medium">
+                        <i class="fa-solid fa-wand-magic-sparkles text-emerald-400 mr-1"></i> Sample Squad
+                    </button>
+                    <button onclick="clearAllPlayers()" class="text-xs bg-red-900/40 hover:bg-red-900/60 text-red-300 px-3 py-1.5 rounded-lg transition font-medium border border-red-800/50">
+                        <i class="fa-solid fa-trash mr-1"></i> Clear All
+                    </button>
+                </div>
+            </div>
+
+            <div id="modal-roster-list" class="space-y-2 overflow-y-auto max-h-[300px] pr-1"></div>
+
+            <div class="flex justify-end pt-2 border-t border-slate-700">
+                <button onclick="closeRosterModal()" class="bg-slate-700 hover:bg-slate-600 text-white px-5 py-2 rounded-xl text-sm font-medium transition">
+                    Done
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Substitution Selection Modal -->
+    <div id="sub-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl flex flex-col gap-4">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-shuffle text-indigo-400"></i> Player Substitution
+                </h3>
+                <button onclick="closeSubModal()" class="text-slate-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <p class="text-xs text-slate-300">
+                Swapping player at position: <strong id="sub-target-pos-name" class="text-emerald-400">GK</strong>
+            </p>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Select Bench Player:</label>
+                <div id="sub-bench-list" class="space-y-2 max-h-[250px] overflow-y-auto pr-1"></div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t border-slate-700">
+                <button onclick="closeSubModal()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-xl text-sm font-medium transition">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Batch / Queued Substitution Modal -->
+    <div id="batch-sub-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl flex flex-col gap-4 max-h-[90vh]">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-people-arrows text-indigo-400"></i> Batch Substitution Queue
+                </h3>
+                <button onclick="closeBatchSubModal()" class="text-slate-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <p class="text-xs text-slate-300">
+                Prepare multiple substitutions directly from field clicks or here, then execute them simultaneously at the next stoppage.
+            </p>
+
+            <div class="bg-slate-900 p-3 rounded-xl border border-slate-700 space-y-3">
+                <div class="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Add Substitution Pair</div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[11px] font-medium text-slate-400 mb-1">Sub OFF (Field)</label>
+                        <select id="batch-off-select" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"></select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium text-slate-400 mb-1">Sub ON (Bench)</label>
+                        <select id="batch-on-select" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"></select>
+                    </div>
+                </div>
+                <button onclick="addPairToQueue()" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 rounded-lg text-xs transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-plus text-emerald-400"></i> Add to Queue
+                </button>
+            </div>
+
+            <div>
+                <div class="flex justify-between items-center mb-1.5">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Queued Subs (<span id="queue-count">0</span>)</span>
+                    <button onclick="clearSubQueue()" class="text-xs text-red-400 hover:text-red-300">Clear Queue</button>
+                </div>
+                <div id="batch-queue-list" class="space-y-1.5 max-h-[180px] overflow-y-auto pr-1">
+                    <div class="text-slate-500 text-xs italic text-center py-4">No substitutions queued yet.</div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t border-slate-700">
+                <button onclick="closeBatchSubModal()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-xl text-sm font-medium transition">
+                    Cancel
+                </button>
+                <button onclick="executeAllQueuedSubs()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-sm font-medium transition shadow flex items-center gap-2">
+                    <i class="fa-solid fa-bolt"></i> Execute All Subs Now
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Multi-Team Management Modal -->
+    <div id="teams-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl flex flex-col gap-4">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-shield-halved text-emerald-400"></i> Manage Teams
+                </h3>
+                <button onclick="closeTeamsModal()" class="text-slate-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form onsubmit="createNewTeam(event)" class="flex gap-2 bg-slate-900 p-3 rounded-xl border border-slate-700">
+                <input type="text" id="new-team-name-input" required placeholder="New Team Name..." autocomplete="off" class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
+                <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow">
+                    <i class="fa-solid fa-plus"></i> Create
+                </button>
+            </form>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Your Teams:</label>
+                <div id="teams-list-container" class="space-y-2 max-h-[240px] overflow-y-auto pr-1"></div>
+            </div>
+
+            <div class="flex justify-end pt-2 border-t border-slate-700">
+                <button onclick="closeTeamsModal()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-xl text-sm font-medium transition">
+                    Done
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share App & Teams Modal -->
+    <div id="share-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl flex flex-col gap-4">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-share-nodes text-sky-400"></i> Share App & Teams
+                </h3>
+                <button onclick="closeShareModal()" class="text-slate-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <!-- Share App Section -->
+                <div class="bg-slate-900 p-3 rounded-xl border border-slate-700 space-y-2">
+                    <label class="block text-xs font-bold text-emerald-400 uppercase tracking-wider">Share This App With Coaches</label>
+                    <p class="text-[11px] text-slate-300">Invite assistant coaches or fellow trainers to use PitchSide Match Pro:</p>
+                    <div class="flex gap-2">
+                        <input type="text" id="share-app-url" readonly class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none">
+                        <button onclick="shareAppUrl()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition">Copy App Link</button>
+                    </div>
+                </div>
+
+                <!-- Export Team Code Section -->
+                <div class="bg-slate-900 p-3 rounded-xl border border-slate-700 space-y-2">
+                    <label class="block text-xs font-bold text-sky-400 uppercase tracking-wider">Export Current Team Code</label>
+                    <p class="text-[11px] text-slate-300">Share this team's roster and setup with another coach:</p>
+                    <div class="flex gap-2">
+                        <input type="text" id="share-export-code" readonly class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-mono text-sky-300 focus:outline-none">
+                        <button onclick="copyExportCode()" class="bg-sky-600 hover:bg-sky-500 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition">Copy Code</button>
+                    </div>
+                </div>
+
+                <!-- Import Team Code Section -->
+                <div class="bg-slate-900 p-3 rounded-xl border border-slate-700 space-y-2">
+                    <label class="block text-xs font-bold text-indigo-400 uppercase tracking-wider">Import Team Code</label>
+                    <p class="text-[11px] text-slate-300">Paste a team code sent by another coach:</p>
+                    <div class="space-y-2">
+                        <textarea id="share-import-input" placeholder="Paste team code here..." rows="2" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"></textarea>
+                        <button onclick="importTeamCode()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 rounded-lg text-xs transition">
+                            <i class="fa-solid fa-file-arrow-down mr-1"></i> Import Team Now
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Live Spectator View Button -->
+                <div class="pt-1">
+                    <button onclick="openLiveSpectatorView()" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-medium py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-1.5 border border-slate-600">
+                        <i class="fa-solid fa-tower-broadcast text-emerald-400"></i> Open Parent & Fan Live Broadcast View
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-2 border-t border-slate-700">
+                <button onclick="closeShareModal()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-xl text-sm font-medium transition">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Spectator View Modal (For Parents/Coaches) -->
+    <div id="spectator-modal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 hidden flex flex-col p-4">
+        <div class="max-w-4xl w-full mx-auto flex flex-col h-full gap-4">
+            <div class="flex justify-between items-center bg-slate-900 border border-slate-700 p-4 rounded-2xl shadow-xl">
+                <div class="flex items-center gap-3">
+                    <div class="bg-emerald-600 p-2.5 rounded-xl shadow-lg">
+                        <i class="fa-solid fa-tower-broadcast text-white text-xl animate-pulse"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            Live Game Broadcast <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/30">Parents & Fans</span>
+                        </h2>
+                        <p class="text-xs text-slate-400" id="spectator-team-subtitle">Team Name</p>
+                    </div>
+                </div>
+                <button onclick="closeLiveSpectatorView()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl text-sm transition">
+                    <i class="fa-solid fa-xmark mr-1"></i> Close Broadcast
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1 overflow-hidden">
+                <div class="bg-slate-900 border border-slate-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center">
+                    <div class="text-xs uppercase tracking-wider text-slate-400 mb-1" id="spectator-period">First Half</div>
+                    <div class="text-5xl font-black font-mono text-emerald-400 mb-2" id="spectator-clock">00:00</div>
+                    <div class="text-xs text-emerald-300 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-800/50">
+                        <i class="fa-solid fa-circle text-[8px] animate-ping mr-1"></i> Match In Progress
+                    </div>
+                </div>
+
+                <div class="md:col-span-2 bg-slate-900 border border-slate-700 rounded-2xl p-4 flex flex-col gap-3">
+                    <h3 class="font-semibold text-xs uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-users text-emerald-400"></i> Current On-Field Lineup
+                    </h3>
+                    <div id="spectator-lineup-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2 overflow-y-auto max-h-[300px] pr-1"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Match Settings & Reset Modal -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-sm w-full p-6 shadow-2xl flex flex-col gap-4">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-gear text-slate-400"></i> Match Settings & Reset
+                </h3>
+                <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Match Period</label>
+                    <select id="settings-period-select" onchange="setMatchPeriod(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
+                        <option value="First Half">First Half</option>
+                        <option value="Half Time">Half Time</option>
+                        <option value="Second Half">Second Half</option>
+                        <option value="Extra Time">Extra Time</option>
+                        <option value="Full Time">Full Time</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Set Clock (Minutes)</label>
+                    <div class="flex gap-2">
+                        <input type="number" id="settings-custom-min" min="0" max="120" placeholder="0" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
+                        <button onclick="applyCustomTime()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-medium transition">Set</button>
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-700 pt-3">
+                    <label class="block text-xs font-semibold text-red-400 mb-1 uppercase tracking-wider">New Game Reset</label>
+                    <p class="text-[11px] text-slate-400 mb-2">Reset all player playing times back to 0:00 and clear the match clock for a new game.</p>
+                    <button onclick="resetGameStats()" class="w-full bg-red-900/40 hover:bg-red-900/60 text-red-300 border border-red-800/50 font-medium py-2 rounded-xl text-xs transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-rotate-right"></i> Reset Playing Times for New Game
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-2 border-t border-slate-700">
+                <button onclick="closeSettingsModal()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-xl text-sm font-medium transition">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-3">
+        <i class="fa-solid fa-circle-check text-lg"></i>
+        <span id="toast-msg" class="text-sm font-medium">Notification message</span>
+    </div>
+
+    <script>
+        // Formations Definition for 11v11, 9v9, and 7v7
+        const FORMATIONS = {
+            "4-4-2": [
+                { id: "GK", name: "GK", x: 50, y: 90 },
+                { id: "LB", name: "LB", x: 15, y: 70 },
+                { id: "CB1", name: "CB", x: 38, y: 76 },
+                { id: "CB2", name: "CB", x: 62, y: 76 },
+                { id: "RB", name: "RB", x: 85, y: 70 },
+                { id: "LM", name: "LM", x: 15, y: 45 },
+                { id: "CM1", name: "CM", x: 38, y: 50 },
+                { id: "CM2", name: "CM", x: 62, y: 50 },
+                { id: "RM", name: "RM", x: 85, y: 45 },
+                { id: "ST1", name: "ST", x: 38, y: 20 },
+                { id: "ST2", name: "ST", x: 62, y: 20 }
+            ],
+            "4-3-3": [
+                { id: "GK", name: "GK", x: 50, y: 90 },
+                { id: "LB", name: "LB", x: 15, y: 70 },
+                { id: "CB1", name: "CB", x: 38, y: 76 },
+                { id: "CB2", name: "CB", x: 62, y: 76 },
+                { id: "RB", name: "RB", x: 85, y: 70 },
+                { id: "CDM", name: "CDM", x: 50, y: 60 },
+                { id: "CM1", name: "CM", x: 30, y: 42 },
+                { id: "CM2", name: "CM", x: 70, y: 42 },
+                { id: "LW", name: "LW", x: 15, y: 20 },
+                { id: "ST", name: "ST", x: 50, y: 15 },
+                { id: "RW", name: "RW", x: 85, y: 20 }
+            ],
+            "3-5-2": [
+                { id: "GK", name: "GK", x: 50, y: 90 },
+                { id: "CB1", name: "CB", x: 25, y: 76 },
+                { id: "CB2", name: "CB", x: 50, y: 78 },
+                { id: "CB3", name: "CB", x: 75, y: 76 },
+                { id: "LWB", name: "LWB", x: 12, y: 50 },
+                { id: "CM1", name: "CM", x: 35, y: 52 },
+                { id: "CDM", name: "CDM", x: 50, y: 64 },
+                { id: "CM2", name: "CM", x: 65, y: 52 },
+                { id: "RWB", name: "RWB", x: 88, y: 50 },
+                { id: "ST1", name: "ST", x: 38, y: 20 },
+                { id: "ST2", name: "ST", x: 62, y: 20 }
+            ],
+            "4-2-3-1": [
+                { id: "GK", name: "GK", x: 50, y: 90 },
+                { id: "LB", name: "LB", x: 15, y: 70 },
+                { id: "CB1", name: "CB", x: 38, y: 76 },
+                { id: "CB2", name: "CB", x: 62, y: 76 },
+                { id: "RB", name: "RB", x: 85, y: 70 },
+                { id: "CDM1", name: "CDM", x: 38, y: 62 },
+                { id: "CDM2", name: "CDM", x: 62, y: 62 },
+                { id: "LM", name: "LM", x: 15, y: 38 },
+                { id: "CAM", name: "CAM", x: 50, y: 38 },
+                { id: "RM", name: "RM", x: 85, y: 38 },
+                { id: "ST", name: "ST", x: 50, y: 18 }
+            ],
+            "3-4-3": [
+                { id: "GK", name: "GK", x: 50, y: 90 },
+                { id: "CB1", name: "CB", x: 25, y: 76 },
+                { id: "CB2", name: "CB", x: 50, y: 78 },
+                { id: "CB3", name: "CB", x: 75, y: 76 },
+                { id: "LM", name: "LM", x: 15, y: 48 },
+                { id: "CM1", name: "CM", x: 38, y: 52 },
+                { id: "CM2", name: "CM", x: 62, y: 52 },
+                { id: "RM", name: "RM", x: 85, y: 48 },
+                { id: "LW", name: "LW", x: 20, y: 20 },
+                { id: "ST", name: "ST", x: 50, y: 16 },
+                { id: "RW", name: "RW", x: 80, y: 20 }
+            ],
+            // 9v9
+            "3-2-3": [
+                { id: "GK", name: "GK", x: 50, y: 90 },
+                { id: "CB1", name: "CB", x: 30, y: 76 },
+                { id: "CB2", name: "CB", x: 50, y: 78 },
+                { id: "CB3", name: "CB", x: 70, y: 76 },
+                { id: "CM1", name: "CM", x: 38, y: 50 },
+                { id: "CM2", name: "CM", x: 62, y: 50 },
+                { id: "LW", name: "LW", x: 20, y: 22 },
+                { id: "ST", name: "ST", x: 50, y: 16 },
+                { id: "RW", name: "RW", x: 80, y: 22 }
+            ],
+            "3-3-2": [
+                { id: "GK", name: "GK", x: 50, y: 90 },
+                { id: "CB1", name: "CB", x: 30, y: 76 },
+                { id: "CB2", name: "CB", x: 50, y: 78 },
+                { id: "CB3", name: "CB", x: 70, y: 76 },
+                { id: "LM", name: "LM", x: 20, y: 48 },
+                { id: "CM", name: "CM", x: 50, y: 50 },
+                { id: "RM", name: "RM", x: 80, y: 48 },
+                { id: "ST1", name: "ST", x: 38, y: 20 },
+                { id: "ST2", name: "ST", x: 62, y: 20 }
+            ],
+            "2-4-2": [
+                { id: "GK", name: "GK", x: 50, y: 90 },
+                { id: "CB1", name: "CB", x: 38, y: 76 },
+                { id: "CB2", name: "CB", x: 62, y: 76 },
+                { id: "LM", name: "LM", x: 15, y: 48 },
+                { id: "CM1", name: "CM", x: 38, y: 50 },
+                { id: "CM2", name: "CM", x: 62, y: 50 },
+                { id: "RM", name: "RM", x: 85, y: 48 },
+                { id: "ST1", name: "ST", x: 38, y: 20 },
+                { id: "ST2", name: "ST", x: 62, y: 20 }
+            ],
+            "4-3-1": [
+                { id: "GK", name: "GK", x: 50, y: 90 },
+                { id: "LB", name: "LB", x: 15, y: 70 },
+                { id: "CB1", name: "CB", x: 38, y: 76 },
+                { id: "CB2", name: "CB", x: 62, y: 76 },
+                { id: "RB", name: "RB", x: 85, y: 70 },
+                { id: "CM1", name: "CM", x: 30, y: 45 },
+                { id: "CM2", name: "CM", x: 50, y: 45 },
+                { id: "CM3", name: "CM", x: 70, y: 45 },
+                { id: "ST", name: "ST", x: 50, y: 18 }
+            ],
+            // 7v7
+            "2-3-1": [
+                { id: "GK", name: "GK", x: 50, y: 90 },
+                { id: "CB1", name: "CB", x: 35, y: 74 },
+                { id: "CB2", name: "CB", x: 65, y: 74 },
+                { id: "LM", name: "LM", x: 20, y: 48 },
+                { id: "CM", name: "CM", x: 50, y: 50 },
+                { id: "RM", name: "RM", x: 80, y: 48 },
+                { id: "ST", name: "ST", x: 50, y: 18 }
+            ],
+            "3-2-1": [
+                { id: "GK", name: "GK", x: 50, y: 90 },
+                { id: "CB1", name: "CB", x: 25, y: 74 },
+                { id: "CB2", name: "CB", x: 50, y: 76 },
+                { id: "CB3", name: "CB", x: 75, y: 74 },
+                { id: "CM1", name: "CM", x: 38, y: 48 },
+                { id: "CM2", name: "CM", x: 62, y: 48 },
+                { id: "ST", name: "ST", x: 50, y: 18 }
+            ],
+            "2-1-2-1": [
+                { id: "GK", name: "GK", x: 50, y: 90 },
+                { id: "CB1", name: "CB", x: 35, y: 74 },
+                { id: "CB2", name: "CB", x: 65, y: 74 },
+                { id: "CDM", name: "CDM", x: 50, y: 58 },
+                { id: "LM", name: "LM", x: 25, y: 38 },
+                { id: "RM", name: "RM", x: 75, y: 38 },
+                { id: "ST", name: "ST", x: 50, y: 18 }
+            ],
+            "3-1-2": [
+                { id: "GK", name: "GK", x: 50, y: 90 },
+                { id: "CB1", name: "CB", x: 25, y: 74 },
+                { id: "CB2", name: "CB", x: 50, y: 76 },
+                { id: "CB3", name: "CB", x: 75, y: 74 },
+                { id: "CM", name: "CM", x: 50, y: 50 },
+                { id: "ST1", name: "ST", x: 38, y: 20 },
+                { id: "ST2", name: "ST", x: 62, y: 20 }
+            ],
+            "1-4-1": [
+                { id: "GK", name: "GK", x: 50, y: 90 },
+                { id: "CB", name: "CB", x: 50, y: 75 },
+                { id: "LB", name: "LB", x: 18, y: 48 },
+                { id: "CM1", name: "CM", x: 38, y: 50 },
+                { id: "CM2", name: "CM", x: 62, y: 50 },
+                { id: "RB", name: "RB", x: 82, y: 48 },
+                { id: "ST", name: "ST", x: 50, y: 18 }
+            ]
+        };
+
+        const SAMPLE_PLAYERS = [
+            { id: "p_1", name: "David S.", number: 1, position: "GK", onField: true, playingTime: 0, subCount: 0 },
+            { id: "p_2", name: "Marcus A.", number: 2, position: "RB", onField: true, playingTime: 0, subCount: 0 },
+            { id: "p_3", name: "Virgil vD.", number: 4, position: "CB1", onField: true, playingTime: 0, subCount: 0 },
+            { id: "p_4", name: "William S.", number: 6, position: "CB2", onField: true, playingTime: 0, subCount: 0 },
+            { id: "p_5", name: "Andrew R.", number: 26, position: "LB", onField: true, playingTime: 0, subCount: 0 },
+            { id: "p_6", name: "Kevin de B.", number: 17, position: "CM1", onField: true, playingTime: 0, subCount: 0 },
+            { id: "p_7", name: "Rodri H.", number: 16, position: "CM2", onField: true, playingTime: 0, subCount: 0 },
+            { id: "p_8", name: "Bukayo S.", number: 7, position: "RM", onField: true, playingTime: 0, subCount: 0 },
+            { id: "p_9", name: "Heung-Min S.", number: 7, position: "LM", onField: true, playingTime: 0, subCount: 0 },
+            { id: "p_10", name: "Erling H.", number: 9, position: "ST1", onField: true, playingTime: 0, subCount: 0 },
+            { id: "p_11", name: "Kylian M.", number: 10, position: "ST2", onField: true, playingTime: 0, subCount: 0 },
+            { id: "p_12", name: "Alisson B.", number: 13, position: "Bench", onField: false, playingTime: 0, subCount: 0 },
+            { id: "p_13", name: "Trent A-A.", number: 66, position: "Bench", onField: false, playingTime: 0, subCount: 0 },
+            { id: "p_14", name: "Phil F.", number: 47, position: "Bench", onField: false, playingTime: 0, subCount: 0 }
+        ];
+
+        let state = {
+            currentTeamId: "team_default",
+            teams: [
+                {
+                    id: "team_default",
+                    name: "Main Squad (Varsity)",
+                    formation: "4-4-2",
+                    players: JSON.parse(JSON.stringify(SAMPLE_PLAYERS))
+                }
+            ],
+            matchTimeSeconds: 0,
+            timerRunning: false,
+            matchPeriod: "First Half",
+            rosterFilter: "all",
+            activeSubPosition: null,
+            selectedPitchPosition: null,
+            fullscreenPitch: false,
+            subLog: [],
+            subQueue: []
+        };
+
+        let timerInterval = null;
+
+        function loadState() {
+            try {
+                const saved = localStorage.getItem("pitchside_app_state_v7");
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (parsed && parsed.teams && parsed.teams.length > 0) {
+                        state = { ...state, ...parsed };
+                    }
+                }
+            } catch (err) {
+                console.error("Error loading state:", err);
+            }
+        }
+
+        function saveState() {
+            try {
+                localStorage.setItem("pitchside_app_state_v7", JSON.stringify({
+                    currentTeamId: state.currentTeamId,
+                    teams: state.teams,
+                    matchTimeSeconds: state.matchTimeSeconds,
+                    matchPeriod: state.matchPeriod,
+                    subLog: state.subLog,
+                    subQueue: state.subQueue
+                }));
+            } catch (err) {
+                console.error("Error saving state:", err);
+            }
+        }
+
+        function getCurrentTeam() {
+            let team = state.teams.find(t => t.id === state.currentTeamId);
+            if (!team) {
+                team = state.teams[0];
+                state.currentTeamId = team.id;
+            }
+            return team;
+        }
+
+        window.onload = function() {
+            try {
+                loadState();
+                renderAll();
+            } catch (err) {
+                console.error("Initialization error:", err);
+            }
+        };
+
+        function renderAll() {
+            try {
+                renderTeamSelector();
+                renderPitch();
+                renderRoster();
+                renderModalRoster();
+                renderPlayingTime();
+                renderSubLog();
+                renderBatchSubOptions();
+                renderBatchQueue();
+                saveState();
+            } catch (err) {
+                console.error("Error in renderAll:", err);
+            }
+        }
+
+        function renderTeamSelector() {
+            const selector = document.getElementById("team-selector");
+            if (!selector) return;
+            selector.innerHTML = "";
+            state.teams.forEach(t => {
+                const opt = document.createElement("option");
+                opt.value = t.id;
+                opt.innerText = t.name;
+                if (t.id === state.currentTeamId) opt.selected = true;
+                selector.appendChild(opt);
+            });
+            const modalLabel = document.getElementById("modal-team-name-label");
+            if (modalLabel) modalLabel.innerText = getCurrentTeam().name;
+        }
+
+        function switchTeam(teamId) {
+            state.currentTeamId = teamId;
+            state.selectedPitchPosition = null;
+            state.subQueue = [];
+            renderAll();
+            showToast(`Switched to team: ${getCurrentTeam().name}`);
+        }
+
+        function openTeamsModal() {
+            renderTeamsList();
+            const modal = document.getElementById("teams-modal");
+            if (modal) modal.classList.remove("hidden");
+        }
+
+        function closeTeamsModal() {
+            const modal = document.getElementById("teams-modal");
+            if (modal) modal.classList.add("hidden");
+        }
+
+        function renderTeamsList() {
+            const container = document.getElementById("teams-list-container");
+            if (!container) return;
+            container.innerHTML = "";
+            state.teams.forEach(t => {
+                const item = document.createElement("div");
+                item.className = `bg-slate-900 border ${t.id === state.currentTeamId ? 'border-emerald-500' : 'border-slate-700'} rounded-xl p-2.5 flex items-center justify-between`;
+                item.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="font-semibold text-sm text-slate-200">${t.name}</span>
+                        <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">${t.players.length} players</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        ${t.id !== state.currentTeamId ? `<button onclick="switchTeam('${t.id}'); closeTeamsModal();" class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded-lg transition">Select</button>` : `<span class="text-xs text-emerald-400 font-bold px-2">Active</span>`}
+                        ${state.teams.length > 1 ? `<button onclick="deleteTeam('${t.id}')" class="text-xs text-red-400 hover:text-red-300 p-1.5 rounded-lg hover:bg-red-900/20 transition"><i class="fa-solid fa-trash"></i></button>` : ''}
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function createNewTeam(event) {
+            if (event) event.preventDefault();
+            const input = document.getElementById("new-team-name-input");
+            if (!input) return;
+            const name = input.value.trim();
+            if (!name) return;
+
+            const newId = 'team_' + Date.now();
+            const newTeam = {
+                id: newId,
+                name: name,
+                formation: "4-4-2",
+                players: JSON.parse(JSON.stringify(SAMPLE_PLAYERS))
+            };
+
+            state.teams.push(newTeam);
+            state.currentTeamId = newId;
+            input.value = "";
+            renderTeamsList();
+            renderAll();
+            showToast(`Created and switched to team: ${name}`);
+        }
+
+        function deleteTeam(teamId) {
+            if (state.teams.length <= 1) {
+                showToast("You must keep at least one team.");
+                return;
+            }
+            state.teams = state.teams.filter(t => t.id !== teamId);
+            if (state.currentTeamId === teamId) {
+                state.currentTeamId = state.teams[0].id;
+            }
+            renderTeamsList();
+            renderAll();
+            showToast("Team deleted successfully");
+        }
+
+        // --- App & Team Sharing Functions ---
+        function openShareModal() {
+            const team = getCurrentTeam();
+            const appUrlInput = document.getElementById("share-app-url");
+            if (appUrlInput) {
+                appUrlInput.value = window.location.href;
+            }
+            const exportInput = document.getElementById("share-export-code");
+            if (exportInput) {
+                exportInput.value = btoa(unescape(encodeURIComponent(JSON.stringify(team))));
+            }
+            const modal = document.getElementById("share-modal");
+            if (modal) modal.classList.remove("hidden");
+        }
+
+        function closeShareModal() {
+            const modal = document.getElementById("share-modal");
+            if (modal) modal.classList.add("hidden");
+        }
+
+        function shareAppUrl() {
+            const input = document.getElementById("share-app-url");
+            if (!input) return;
+            input.select();
+            input.setSelectionRange(0, 99999);
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(input.value).then(() => {
+                    showToast("App link copied to clipboard! Share it with fellow coaches.");
+                }).catch(() => {
+                    showToast("App link copied!");
+                });
+            } else {
+                document.execCommand('copy');
+                showToast("App link copied!");
+            }
+        }
+
+        function copyExportCode() {
+            const exportInput = document.getElementById("share-export-code");
+            if (!exportInput) return;
+            exportInput.select();
+            exportInput.setSelectionRange(0, 99999);
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(exportInput.value).then(() => {
+                    showToast("Team code copied to clipboard! Send to your co-coach.");
+                }).catch(() => {
+                    showToast("Copied team code!");
+                });
+            } else {
+                document.execCommand('copy');
+                showToast("Copied team code!");
+            }
+        }
+
+        function importTeamCode() {
+            const importInput = document.getElementById("share-import-input");
+            if (!importInput) return;
+            const code = importInput.value.trim();
+            if (!code) {
+                showToast("Please paste a team code first.");
+                return;
+            }
+
+            try {
+                const jsonStr = decodeURIComponent(escape(atob(code)));
+                const importedTeam = JSON.parse(jsonStr);
+                if (!importedTeam.name || !importedTeam.players) {
+                    throw new Error("Invalid team format");
+                }
+
+                importedTeam.id = 'team_' + Date.now();
+                state.teams.push(importedTeam);
+                state.currentTeamId = importedTeam.id;
+                importInput.value = "";
+                closeShareModal();
+                renderAll();
+                showToast(`Successfully imported team: ${importedTeam.name}!`);
+            } catch (err) {
+                console.error("Import error:", err);
+                showToast("Invalid team code. Please check and try again.");
+            }
+        }
+
+        function openLiveSpectatorView() {
+            closeShareModal();
+            const team = getCurrentTeam();
+            const subtitleEl = document.getElementById("spectator-team-subtitle");
+            if (subtitleEl) subtitleEl.innerText = `${team.name} • Live Match Broadcast`;
+            
+            updateSpectatorClock();
+            renderSpectatorLineup();
+
+            const modal = document.getElementById("spectator-modal");
+            if (modal) modal.classList.remove("hidden");
+        }
+
+        function closeLiveSpectatorView() {
+            const modal = document.getElementById("spectator-modal");
+            if (modal) modal.classList.add("hidden");
+        }
+
+        function updateSpectatorClock() {
+            const mins = Math.floor(state.matchTimeSeconds / 60);
+            const secs = state.matchTimeSeconds % 60;
+            const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            const clockEl = document.getElementById("spectator-clock");
+            if (clockEl) clockEl.innerText = timeStr;
+            const periodEl = document.getElementById("spectator-period");
+            if (periodEl) periodEl.innerText = state.matchPeriod.toUpperCase();
+        }
+
+        function renderSpectatorLineup() {
+            const container = document.getElementById("spectator-lineup-list");
+            if (!container) return;
+            container.innerHTML = "";
+            const team = getCurrentTeam();
+            const fieldPlayers = team.players.filter(p => p.onField);
+
+            if (fieldPlayers.length === 0) {
+                container.innerHTML = `<div class="text-slate-500 text-xs italic">No players currently on field.</div>`;
+                return;
+            }
+
+            fieldPlayers.forEach(p => {
+                const mins = Math.floor(p.playingTime / 60);
+                const secs = p.playingTime % 60;
+                const div = document.createElement("div");
+                div.className = "bg-slate-900 border border-slate-700/80 p-2.5 rounded-xl flex items-center justify-between";
+                div.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="w-7 h-7 rounded bg-slate-800 text-emerald-400 font-bold text-xs flex items-center justify-center">#${p.number}</span>
+                        <div>
+                            <div class="text-sm font-semibold text-slate-200">${p.name}</div>
+                            <div class="text-[10px] text-emerald-400">Position: ${p.position}</div>
+                        </div>
+                    </div>
+                    <div class="text-xs font-mono font-bold text-emerald-300">
+                        ${mins}m ${secs}s
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function toggleMatchTimer() {
+            state.timerRunning = !state.timerRunning;
+            const icon = document.getElementById("timer-icon");
+            const btnText = document.getElementById("timer-btn-text");
+            const startBtn = document.getElementById("btn-start-pause");
+
+            if (state.timerRunning) {
+                if (icon) icon.className = "fa-solid fa-pause";
+                if (btnText) btnText.innerText = "Pause";
+                if (startBtn) startBtn.className = "bg-amber-600 hover:bg-amber-500 text-white font-medium px-3.5 py-1.5 rounded-lg text-sm shadow transition flex items-center gap-1.5";
+                
+                timerInterval = setInterval(() => {
+                    state.matchTimeSeconds++;
+                    const team = getCurrentTeam();
+                    team.players.forEach(p => {
+                        if (p.onField) {
+                            p.playingTime++;
+                        }
+                    });
+                    updateClockDisplay();
+                    renderPlayingTime();
+                    renderPitch();
+                    
+                    const spectatorModal = document.getElementById("spectator-modal");
+                    if (spectatorModal && !spectatorModal.classList.contains("hidden")) {
+                        updateSpectatorClock();
+                        renderSpectatorLineup();
+                    }
+
+                    saveState();
+                }, 1000);
+            } else {
+                if (icon) icon.className = "fa-solid fa-play";
+                if (btnText) btnText.innerText = "Resume";
+                if (startBtn) startBtn.className = "bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-3.5 py-1.5 rounded-lg text-sm shadow transition flex items-center gap-1.5";
+                clearInterval(timerInterval);
+                saveState();
+            }
+        }
+
+        function resetGameStats() {
+            if (state.timerRunning) toggleMatchTimer();
+            state.matchTimeSeconds = 0;
+            const team = getCurrentTeam();
+            team.players.forEach(p => {
+                p.playingTime = 0;
+                p.subCount = 0;
+            });
+            state.subLog = [];
+            state.subQueue = [];
+            updateClockDisplay();
+            closeSettingsModal();
+            renderAll();
+            showToast("Game reset: Playing times and clock cleared for new game!");
+        }
+
+        function updateClockDisplay() {
+            const mins = Math.floor(state.matchTimeSeconds / 60);
+            const secs = state.matchTimeSeconds % 60;
+            const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            const clockEl = document.getElementById("match-clock");
+            if (clockEl) clockEl.innerText = timeStr;
+        }
+
+        function setMatchPeriod(period) {
+            state.matchPeriod = period;
+            const periodEl = document.getElementById("match-period");
+            if (periodEl) periodEl.innerText = period.toUpperCase();
+            closeSettingsModal();
+            showToast(`Period changed to: ${period}`);
+        }
+
+        function applyCustomTime() {
+            const minInput = document.getElementById("settings-custom-min");
+            if (!minInput) return;
+            const mins = parseInt(minInput.value);
+            if (!isNaN(mins) && mins >= 0) {
+                state.matchTimeSeconds = mins * 60;
+                updateClockDisplay();
+                closeSettingsModal();
+                showToast(`Clock set to ${mins}:00`);
+            }
+        }
+
+        function toggleFullscreenPitch() {
+            try {
+                state.fullscreenPitch = !state.fullscreenPitch;
+                const section = document.getElementById("pitch-card-section");
+                const wrapper = document.getElementById("soccer-field-wrapper");
+                const btnIcon = document.getElementById("fullscreen-btn-icon");
+                const btnText = document.getElementById("fullscreen-btn-text");
+
+                if (!section) return;
+
+                if (state.fullscreenPitch) {
+                    section.classList.add("fixed", "inset-4", "z-50", "max-w-none", "max-h-[96vh]", "overflow-y-auto", "bg-slate-900/98", "border-2", "border-emerald-500/80");
+                    if (wrapper) wrapper.className = "relative w-full flex-1 min-h-[65vh] rounded-xl soccer-pitch shadow-inner border border-emerald-700/50 flex flex-col items-center justify-between p-4";
+                    if (btnIcon) btnIcon.className = "fa-solid fa-compress";
+                    if (btnText) btnText.innerText = "Exit Fullscreen";
+                    showToast("Pitch entered Fullscreen Mode.");
+                } else {
+                    section.classList.remove("fixed", "inset-4", "z-50", "max-w-none", "max-h-[96vh]", "overflow-y-auto", "bg-slate-900/98", "border-2", "border-emerald-500/80");
+                    if (wrapper) wrapper.className = "relative w-full aspect-[3/4] max-h-[580px] rounded-xl soccer-pitch shadow-inner border border-emerald-700/50 flex flex-col items-center justify-between p-4";
+                    if (btnIcon) btnIcon.className = "fa-solid fa-expand";
+                    if (btnText) btnText.innerText = "Fullscreen";
+                    showToast("Exited Fullscreen Pitch Mode.");
+                }
+                renderPitch();
+            } catch (err) {
+                console.error("Error toggling fullscreen:", err);
+            }
+        }
+
+        function changeFormation(formationKey) {
+            try {
+                const team = getCurrentTeam();
+                team.formation = formationKey;
+                const formationPositions = FORMATIONS[formationKey];
+                
+                const onFieldPlayers = team.players.filter(p => p.onField);
+                
+                if (onFieldPlayers.length > formationPositions.length) {
+                    for (let i = formationPositions.length; i < onFieldPlayers.length; i++) {
+                        onFieldPlayers[i].onField = false;
+                        onFieldPlayers[i].position = "Bench";
+                    }
+                }
+
+                const activeOnField = team.players.filter(p => p.onField);
+                activeOnField.forEach((p, idx) => {
+                    if (formationPositions[idx]) {
+                        p.position = formationPositions[idx].id;
+                    }
+                });
+
+                state.selectedPitchPosition = null;
+                renderPitch();
+                renderRoster();
+                showToast(`Formation switched to ${formationKey}`);
+            } catch (err) {
+                console.error("Error changing formation:", err);
+            }
+        }
+
+        function renderPitch() {
+            const container = document.getElementById("pitch-positions");
+            if (!container) return;
+            container.innerHTML = "";
+            const team = getCurrentTeam();
+            const currentFormationPositions = FORMATIONS[team.formation || "4-4-2"];
+
+            const formationSelect = document.getElementById("formation-select");
+            if (formationSelect && formationSelect.value !== team.formation) {
+                formationSelect.value = team.formation || "4-4-2";
+            }
+
+            currentFormationPositions.forEach(posDef => {
+                const player = team.players.find(p => p.onField && p.position === posDef.id);
+                const isSelected = state.selectedPitchPosition === posDef.id;
+                const queuedSub = state.subQueue.find(q => player && q.offId === player.id);
+
+                const token = document.createElement("div");
+                token.className = `player-token absolute flex flex-col items-center cursor-pointer select-none ${isSelected ? 'token-selected' : ''} ${queuedSub ? 'token-queued' : ''}`;
+                token.style.left = `${posDef.x}%`;
+                token.style.top = `${posDef.y}%`;
+
+                token.setAttribute("draggable", "true");
+                token.addEventListener("dragstart", (e) => {
+                    e.dataTransfer.setData("text/plain", posDef.id);
+                });
+                token.addEventListener("dragover", (e) => {
+                    e.preventDefault();
+                });
+                token.addEventListener("drop", (e) => {
+                    e.preventDefault();
+                    const draggedPosId = e.dataTransfer.getData("text/plain");
+                    if (draggedPosId && draggedPosId !== posDef.id) {
+                        swapFieldPositions(draggedPosId, posDef.id);
+                    }
+                });
+
+                if (player) {
+                    const pMins = Math.floor(player.playingTime / 60);
+                    const pSecs = player.playingTime % 60;
+                    const pTimeStr = `${pMins}:${pSecs.toString().padStart(2, '0')}`;
+
+                    token.innerHTML = `
+                        <div onclick="handlePitchPositionClick('${posDef.id}')" class="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-slate-900 border-2 ${queuedSub ? 'border-amber-400 bg-amber-950/80' : (isSelected ? 'border-sky-400 bg-sky-950/90' : 'border-emerald-400')} text-white flex items-center justify-center font-bold text-sm shadow-xl relative group">
+                            <span>${player.number}</span>
+                            <div class="absolute -bottom-1 -right-1 ${queuedSub ? 'bg-amber-400 text-slate-950' : (isSelected ? 'bg-sky-400 text-slate-950' : 'bg-emerald-500 text-slate-950')} text-[9px] font-extrabold px-1 rounded-full">${posDef.id}</div>
+                            ${queuedSub ? `<div class="absolute -top-1 -left-1 bg-amber-500 text-slate-950 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-black" title="Queued Sub: ${queuedSub.onName}"><i class="fa-solid fa-clock-rotate-left"></i></div>` : ''}
+                        </div>
+                        <span class="bg-slate-900/95 text-slate-100 text-[11px] font-semibold px-2 py-0.5 rounded-full mt-1 border ${queuedSub ? 'border-amber-500' : (isSelected ? 'border-sky-500' : 'border-slate-700')} shadow whitespace-nowrap max-w-[95px] truncate">
+                            ${player.name.split(' ')[0]}
+                        </span>
+                        ${queuedSub ? `<span class="bg-amber-950/95 text-amber-300 text-[9px] font-semibold px-1.5 py-0.2 rounded border border-amber-700/60 shadow mt-0.5 whitespace-nowrap truncate max-w-[90px]">Queued: ${queuedSub.onName.split(' ')[0]}</span>` : `<span class="bg-emerald-950/95 text-emerald-300 text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border border-emerald-800/60 shadow mt-0.5 whitespace-nowrap"><i class="fa-regular fa-clock mr-0.5 text-[8px]"></i>${pTimeStr}</span>`}
+                    `;
+                } else {
+                    token.innerHTML = `
+                        <div onclick="handlePitchPositionClick('${posDef.id}')" class="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-slate-800/90 border-2 border-dashed border-amber-400 text-amber-400 flex items-center justify-center font-bold text-xs shadow-lg hover:bg-slate-800">
+                            <i class="fa-solid fa-plus"></i>
+                        </div>
+                        <span class="bg-slate-900/95 text-amber-300 text-[10px] font-medium px-2 py-0.5 rounded-full mt-1 border border-slate-700 shadow">
+                            Empty (${posDef.id})
+                        </span>
+                    `;
+                }
+                container.appendChild(token);
+            });
+
+            const onFieldCount = team.players.filter(p => p.onField).length;
+            const totalPositions = currentFormationPositions.length;
+            const maxFieldEl = document.getElementById("max-field-count");
+            if (maxFieldEl) maxFieldEl.innerText = totalPositions;
+            const countEl = document.getElementById("field-count");
+            if (countEl) {
+                countEl.innerText = onFieldCount;
+                if (onFieldCount === totalPositions) {
+                    countEl.className = "text-emerald-400 font-bold";
+                } else {
+                    countEl.className = "text-amber-400 font-bold";
+                }
+            }
+        }
+
+        function handlePitchPositionClick(posId) {
+            try {
+                const team = getCurrentTeam();
+                const playerAtPos = team.players.find(p => p.onField && p.position === posId);
+
+                if (!playerAtPos) {
+                    if (state.selectedPitchPosition) {
+                        swapFieldPositions(state.selectedPitchPosition, posId);
+                    } else {
+                        openSubModalForPosition(posId);
+                    }
+                    return;
+                }
+
+                if (!state.selectedPitchPosition) {
+                    state.selectedPitchPosition = posId;
+                    renderPitch();
+                    showToast(`Selected ${playerAtPos.name} (${posId}). Click another player to swap, or click again for Sub/Queue.`);
+                } else if (state.selectedPitchPosition === posId) {
+                    state.selectedPitchPosition = null;
+                    openSubModalForPosition(posId);
+                } else {
+                    swapFieldPositions(state.selectedPitchPosition, posId);
+                }
+            } catch (err) {
+                console.error("Error in handlePitchPositionClick:", err);
+                state.selectedPitchPosition = null;
+                renderPitch();
+            }
+        }
+
+        function swapFieldPositions(pos1Id, pos2Id) {
+            try {
+                const team = getCurrentTeam();
+                const p1 = team.players.find(p => p.onField && p.position === pos1Id);
+                const p2 = team.players.find(p => p.onField && p.position === pos2Id);
+
+                if (p1 && p2) {
+                    p1.position = pos2Id;
+                    p2.position = pos1Id;
+                    logSubEvent(`Switched positions: ${p1.name} (${pos2Id}) ⇄ ${p2.name} (${pos1Id})`);
+                    showToast(`Switched ${p1.name} and ${p2.name} on field!`);
+                } else if (p1 && !p2) {
+                    p1.position = pos2Id;
+                    logSubEvent(`Moved ${p1.name} to ${pos2Id}`);
+                    showToast(`Moved ${p1.name} to ${pos2Id}`);
+                } else if (!p1 && p2) {
+                    p2.position = pos1Id;
+                    logSubEvent(`Moved ${p2.name} to ${pos1Id}`);
+                    showToast(`Moved ${p2.name} to ${pos1Id}`);
+                }
+                state.selectedPitchPosition = null;
+                renderAll();
+            } catch (err) {
+                console.error("Error swapping positions:", err);
+                state.selectedPitchPosition = null;
+                renderAll();
+            }
+        }
+
+        function setRosterFilter(filter) {
+            state.rosterFilter = filter;
+            ['all', 'bench', 'field'].forEach(f => {
+                const btn = document.getElementById(`filter-${f}`);
+                if (btn) {
+                    if (f === filter) {
+                        btn.className = "flex-1 py-1.5 rounded-lg bg-slate-700 text-white transition font-medium";
+                    } else {
+                        btn.className = "flex-1 py-1.5 rounded-lg text-slate-400 hover:text-white transition";
+                    }
+                }
+            });
+            renderRoster();
+        }
+
+        function renderRoster() {
+            const container = document.getElementById("roster-container");
+            if (!container) return;
+            container.innerHTML = "";
+            const team = getCurrentTeam();
+
+            let filtered = team.players;
+            if (state.rosterFilter === 'bench') {
+                filtered = team.players.filter(p => !p.onField);
+            } else if (state.rosterFilter === 'field') {
+                filtered = team.players.filter(p => p.onField);
+            }
+
+            const rosterCountEl = document.getElementById("roster-count");
+            if (rosterCountEl) rosterCountEl.innerText = team.players.length;
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="text-slate-500 text-xs text-center py-6 italic">No players found in this view.</div>`;
+                return;
+            }
+
+            filtered.forEach(p => {
+                const item = document.createElement("div");
+                item.className = "bg-slate-900/70 border border-slate-700/80 rounded-xl p-2.5 flex items-center justify-between gap-2 hover:border-slate-600 transition";
+                item.innerHTML = `
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 text-emerald-400 font-bold text-xs flex items-center justify-center">
+                            #${p.number}
+                        </div>
+                        <div>
+                            <div class="text-sm font-semibold text-slate-200">${p.name}</div>
+                            <div class="text-[10px] text-slate-400 flex items-center gap-1.5">
+                                <span class="${p.onField ? 'text-emerald-400' : 'text-amber-400'} font-medium">
+                                    ${p.onField ? 'Field: ' + p.position : 'Bench'}
+                                </span>
+                                <span>•</span>
+                                <span>${Math.floor(p.playingTime / 60)}m ${p.playingTime % 60}s</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button onclick="togglePlayerStatus('${p.id}')" title="${p.onField ? 'Move to Bench' : 'Put on Field'}" class="w-7 h-7 rounded-lg ${p.onField ? 'bg-amber-900/40 text-amber-300 hover:bg-amber-900/60' : 'bg-emerald-900/40 text-emerald-300 hover:bg-emerald-900/60'} flex items-center justify-center text-xs transition">
+                            <i class="fa-solid ${p.onField ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function addPlayerInline(event) {
+            if (event) event.preventDefault();
+            try {
+                const nameInput = document.getElementById("inline-player-name");
+                const numInput = document.getElementById("inline-player-num");
+
+                if (!nameInput) return;
+                const name = nameInput.value.trim();
+                const team = getCurrentTeam();
+                const number = numInput && numInput.value ? parseInt(numInput.value) : (team.players.length + 1);
+
+                if (!name) {
+                    showToast("Please enter a player name");
+                    return;
+                }
+
+                const currentFormationPositions = FORMATIONS[team.formation || "4-4-2"];
+                const emptyPos = currentFormationPositions.find(pos => !team.players.some(p => p.onField && p.position === pos.id));
+
+                const newPlayer = {
+                    id: 'p_' + Date.now() + '_' + Math.floor(Math.random() * 100000),
+                    name: name,
+                    number: number,
+                    position: emptyPos ? emptyPos.id : "Bench",
+                    onField: !!emptyPos,
+                    playingTime: 0,
+                    subCount: 0
+                };
+
+                team.players.push(newPlayer);
+                nameInput.value = "";
+                if (numInput) numInput.value = "";
+
+                renderAll();
+                showToast(`Added player: ${name}`);
+            } catch (err) {
+                console.error("Error in addPlayerInline:", err);
+                showToast("Could not add player.");
+            }
+        }
+
+        function addPlayerModalForm(event) {
+            if (event) event.preventDefault();
+            try {
+                const nameInput = document.getElementById("modal-player-name");
+                const numInput = document.getElementById("modal-player-num");
+
+                if (!nameInput) return;
+                const name = nameInput.value.trim();
+                const team = getCurrentTeam();
+                const number = numInput && numInput.value ? parseInt(numInput.value) : (team.players.length + 1);
+
+                if (!name) {
+                    showToast("Please enter a player name");
+                    return;
+                }
+
+                const currentFormationPositions = FORMATIONS[team.formation || "4-4-2"];
+                const emptyPos = currentFormationPositions.find(pos => !team.players.some(p => p.onField && p.position === pos.id));
+
+                const newPlayer = {
+                    id: 'p_' + Date.now() + '_' + Math.floor(Math.random() * 100000),
+                    name: name,
+                    number: number,
+                    position: emptyPos ? emptyPos.id : "Bench",
+                    onField: !!emptyPos,
+                    playingTime: 0,
+                    subCount: 0
+                };
+
+                team.players.push(newPlayer);
+                nameInput.value = "";
+                if (numInput) numInput.value = "";
+
+                renderAll();
+                showToast(`Added ${name} to roster!`);
+            } catch (err) {
+                console.error("Error in addPlayerModalForm:", err);
+                showToast("Could not add player.");
+            }
+        }
+
+        function togglePlayerStatus(playerId) {
+            try {
+                const team = getCurrentTeam();
+                const player = team.players.find(p => p.id === playerId);
+                if (!player) return;
+
+                if (player.onField) {
+                    player.onField = false;
+                    player.position = "Bench";
+                    showToast(`Moved ${player.name} to bench`);
+                } else {
+                    const currentFormationPositions = FORMATIONS[team.formation || "4-4-2"];
+                    const emptyPos = currentFormationPositions.find(pos => !team.players.some(p => p.onField && p.position === pos.id));
+                    if (emptyPos) {
+                        player.onField = true;
+                        player.position = emptyPos.id;
+                        showToast(`Put ${player.name} on field at ${emptyPos.id}`);
+                    } else {
+                        showToast("Formation is full! Use Quick Sub or swap a player off first.");
+                        return;
+                    }
+                }
+                state.selectedPitchPosition = null;
+                renderAll();
+            } catch (err) {
+                console.error("Error toggling player status:", err);
+            }
+        }
+
+        function deletePlayer(playerId) {
+            try {
+                const team = getCurrentTeam();
+                team.players = team.players.filter(p => p.id !== playerId);
+                state.selectedPitchPosition = null;
+                renderAll();
+                showToast("Player removed from roster");
+            } catch (err) {
+                console.error("Error deleting player:", err);
+            }
+        }
+
+        function clearAllPlayers() {
+            const team = getCurrentTeam();
+            team.players = [];
+            state.subLog = [];
+            state.subQueue = [];
+            state.selectedPitchPosition = null;
+            renderAll();
+            showToast("Cleared all players for this team");
+        }
+
+        function loadSampleRoster() {
+            try {
+                const team = getCurrentTeam();
+                team.players = JSON.parse(JSON.stringify(SAMPLE_PLAYERS));
+                state.selectedPitchPosition = null;
+                renderAll();
+                showToast("Loaded sample pro roster");
+            } catch (err) {
+                console.error("Error loading sample roster:", err);
+            }
+        }
+
+        function openSubModalForPosition(posId) {
+            try {
+                state.activeSubPosition = posId;
+                const posNameEl = document.getElementById("sub-target-pos-name");
+                if (posNameEl) posNameEl.innerText = posId;
+
+                const benchList = document.getElementById("sub-bench-list");
+                if (!benchList) return;
+                benchList.innerHTML = "";
+
+                const team = getCurrentTeam();
+                const fieldPlayer = team.players.find(p => p.onField && p.position === posId);
+                const benchPlayers = team.players.filter(p => !p.onField);
+
+                if (benchPlayers.length === 0) {
+                    benchList.innerHTML = `<div class="text-slate-500 text-xs italic py-4 text-center">No players available on the bench. Add more players first.</div>`;
+                } else {
+                    benchPlayers.forEach(bp => {
+                        const btn = document.createElement("div");
+                        btn.className = "bg-slate-900 border border-slate-700 rounded-xl p-2.5 flex items-center justify-between transition";
+                        btn.innerHTML = `
+                            <div class="flex items-center gap-2">
+                                <span class="w-7 h-7 rounded bg-slate-800 text-emerald-400 font-bold text-xs flex items-center justify-center">#${bp.number}</span>
+                                <span class="text-sm font-medium text-slate-200">${bp.name}</span>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <button onclick="executePositionSub('${bp.id}')" class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1.5 rounded-lg transition font-medium shadow">
+                                    Sub Now
+                                </button>
+                                ${fieldPlayer ? `<button onclick="queueFieldSub('${fieldPlayer.id}', '${bp.id}')" class="text-xs bg-amber-600 hover:bg-amber-500 text-white px-2.5 py-1.5 rounded-lg transition font-medium shadow flex items-center gap-1">
+                                    <i class="fa-solid fa-clock-rotate-left"></i> Queue
+                                </button>` : ''}
+                            </div>
+                        `;
+                        benchList.appendChild(btn);
+                    });
+                }
+
+                const subModal = document.getElementById("sub-modal");
+                if (subModal) subModal.classList.remove("hidden");
+            } catch (err) {
+                console.error("Error opening sub modal:", err);
+            }
+        }
+
+        function closeSubModal() {
+            const subModal = document.getElementById("sub-modal");
+            if (subModal) subModal.classList.add("hidden");
+            state.activeSubPosition = null;
+        }
+
+        function executePositionSub(benchPlayerId) {
+            try {
+                const posId = state.activeSubPosition;
+                const team = getCurrentTeam();
+                const benchPlayer = team.players.find(p => p.id === benchPlayerId);
+                const currentFieldPlayer = team.players.find(p => p.onField && p.position === posId);
+
+                if (benchPlayer) {
+                    benchPlayer.onField = true;
+                    benchPlayer.position = posId;
+                    benchPlayer.subCount++;
+
+                    if (currentFieldPlayer) {
+                        currentFieldPlayer.onField = false;
+                        currentFieldPlayer.position = "Bench";
+                        logSubEvent(`${benchPlayer.name} (On) ⇄ ${currentFieldPlayer.name} (Off) at ${posId}`);
+                    } else {
+                        logSubEvent(`${benchPlayer.name} entered at ${posId}`);
+                    }
+                }
+
+                closeSubModal();
+                state.selectedPitchPosition = null;
+                renderAll();
+                showToast(`Substitution completed at ${posId}`);
+            } catch (err) {
+                console.error("Error executing position sub:", err);
+            }
+        }
+
+        function queueFieldSub(offId, onId) {
+            try {
+                const team = getCurrentTeam();
+                const offPlayer = team.players.find(p => p.id === offId);
+                const onPlayer = team.players.find(p => p.id === onId);
+
+                if (!offPlayer || !onPlayer) return;
+
+                if (state.subQueue.some(item => item.offId === offId || item.onId === onId)) {
+                    showToast("One or both of these players are already in the substitution queue.");
+                    return;
+                }
+
+                state.subQueue.push({
+                    offId: offId,
+                    offName: offPlayer.name,
+                    offNum: offPlayer.number,
+                    pos: offPlayer.position,
+                    onId: onId,
+                    onName: onPlayer.name,
+                    onNum: onPlayer.number
+                });
+
+                closeSubModal();
+                state.selectedPitchPosition = null;
+                renderAll();
+                showToast(`Queued batch sub: ${onPlayer.name} ⇄ ${offPlayer.name} (${offPlayer.position})`);
+            } catch (err) {
+                console.error("Error queueing sub:", err);
+            }
+        }
+
+        function openBatchSubModal() {
+            renderBatchSubOptions();
+            renderBatchQueue();
+            const modal = document.getElementById("batch-sub-modal");
+            if (modal) modal.classList.remove("hidden");
+        }
+
+        function closeBatchSubModal() {
+            const modal = document.getElementById("batch-sub-modal");
+            if (modal) modal.classList.add("hidden");
+        }
+
+        function renderBatchSubOptions() {
+            const offSelect = document.getElementById("batch-off-select");
+            const onSelect = document.getElementById("batch-on-select");
+            if (!offSelect || !onSelect) return;
+            offSelect.innerHTML = "";
+            onSelect.innerHTML = "";
+
+            const team = getCurrentTeam();
+            const fieldPlayers = team.players.filter(p => p.onField);
+            const benchPlayers = team.players.filter(p => !p.onField);
+
+            fieldPlayers.forEach(p => {
+                const opt = document.createElement("option");
+                opt.value = p.id;
+                opt.innerText = `#${p.number} ${p.name} (${p.position})`;
+                offSelect.appendChild(opt);
+            });
+
+            benchPlayers.forEach(p => {
+                const opt = document.createElement("option");
+                opt.value = p.id;
+                opt.innerText = `#${p.number} ${p.name} (Bench)`;
+                onSelect.appendChild(opt);
+            });
+        }
+
+        function addPairToQueue() {
+            const offSelect = document.getElementById("batch-off-select");
+            const onSelect = document.getElementById("batch-on-select");
+            if (!offSelect || !onSelect) return;
+
+            const offId = offSelect.value;
+            const onId = onSelect.value;
+
+            if (!offId || !onId) {
+                showToast("Please select both a field player and a bench player.");
+                return;
+            }
+
+            if (state.subQueue.some(item => item.offId === offId || item.onId === onId)) {
+                showToast("One or both of these players are already in the substitution queue.");
+                return;
+            }
+
+            const team = getCurrentTeam();
+            const offPlayer = team.players.find(p => p.id === offId);
+            const onPlayer = team.players.find(p => p.id === onId);
+
+            if (offPlayer && onPlayer) {
+                state.subQueue.push({
+                    offId: offId,
+                    offName: offPlayer.name,
+                    offNum: offPlayer.number,
+                    pos: offPlayer.position,
+                    onId: onId,
+                    onName: onPlayer.name,
+                    onNum: onPlayer.number
+                });
+                renderBatchQueue();
+                renderPitch();
+                showToast(`Added sub to queue: ${onPlayer.name} ⇄ ${offPlayer.name}`);
+            }
+        }
+
+        function renderBatchQueue() {
+            const container = document.getElementById("batch-queue-list");
+            const countEl = document.getElementById("queue-count");
+            const badge = document.getElementById("batch-queue-badge");
+            if (!container) return;
+
+            if (countEl) countEl.innerText = state.subQueue.length;
+            if (badge) {
+                if (state.subQueue.length > 0) {
+                    badge.innerText = state.subQueue.length;
+                    badge.classList.remove("hidden");
+                } else {
+                    badge.classList.add("hidden");
+                }
+            }
+
+            if (state.subQueue.length === 0) {
+                container.innerHTML = `<div class="text-slate-500 text-xs italic text-center py-4">No substitutions queued yet.</div>`;
+                return;
+            }
+
+            container.innerHTML = "";
+            state.subQueue.forEach((item, index) => {
+                const div = document.createElement("div");
+                div.className = "bg-slate-900 border border-slate-700 p-2 rounded-xl flex items-center justify-between text-xs";
+                div.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="text-amber-400 font-bold">#${index + 1}</span>
+                        <div>
+                            <span class="text-emerald-300 font-semibold">ON: #${item.onNum} ${item.onName}</span>
+                            <span class="text-slate-400 mx-1">⇄</span>
+                            <span class="text-rose-300 font-semibold">OFF: #${item.offNum} ${item.offName} (${item.pos})</span>
+                        </div>
+                    </div>
+                    <button onclick="removeSubFromQueue(${index})" class="text-red-400 hover:text-red-300 p-1"><i class="fa-solid fa-xmark"></i></button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function removeSubFromQueue(index) {
+            state.subQueue.splice(index, 1);
+            renderBatchQueue();
+            renderPitch();
+        }
+
+        function clearSubQueue() {
+            state.subQueue = [];
+            renderBatchQueue();
+            renderPitch();
+            showToast("Substitution queue cleared");
+        }
+
+        function executeAllQueuedSubs() {
+            if (state.subQueue.length === 0) {
+                showToast("No substitutions in the queue.");
+                return;
+            }
+
+            const team = getCurrentTeam();
+            state.subQueue.forEach(item => {
+                const offPlayer = team.players.find(p => p.id === item.offId);
+                const onPlayer = team.players.find(p => p.id === item.onId);
+
+                if (offPlayer && onPlayer) {
+                    const pos = offPlayer.position;
+                    offPlayer.onField = false;
+                    offPlayer.position = "Bench";
+
+                    onPlayer.onField = true;
+                    onPlayer.position = pos;
+                    onPlayer.subCount++;
+
+                    logSubEvent(`[Batch] ${onPlayer.name} (On) ⇄ ${offPlayer.name} (Off) at ${pos}`);
+                }
+            });
+
+            state.subQueue = [];
+            closeBatchSubModal();
+            state.selectedPitchPosition = null;
+            renderAll();
+            showToast("All queued substitutions executed successfully!");
+        }
+
+        function renderPlayingTime() {
+            const container = document.getElementById("playing-time-container");
+            if (!container) return;
+            container.innerHTML = "";
+
+            const team = getCurrentTeam();
+            const sorted = [...team.players].sort((a, b) => b.playingTime - a.playingTime);
+
+            sorted.forEach(p => {
+                const mins = Math.floor(p.playingTime / 60);
+                const secs = p.playingTime % 60;
+                const percent = state.matchTimeSeconds > 0 ? Math.min(100, Math.round((p.playingTime / state.matchTimeSeconds) * 100)) : 0;
+
+                const item = document.createElement("div");
+                item.className = "bg-slate-900/60 p-2 rounded-xl border border-slate-700/60";
+                item.innerHTML = `
+                    <div class="flex justify-between items-center text-xs mb-1">
+                        <span class="font-semibold text-slate-200">#${p.number} ${p.name}</span>
+                        <span class="font-mono font-bold text-emerald-400">${mins}m ${secs}s</span>
+                    </div>
+                    <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                        <div class="bg-emerald-500 h-full rounded-full transition-all duration-300" style="width: ${percent}%"></div>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function sortPlayingTime() {
+            renderPlayingTime();
+            showToast("Playing time sorted");
+        }
+
+        function logSubEvent(desc) {
+            const clockEl = document.getElementById("match-clock");
+            const timeStr = clockEl ? clockEl.innerText : "00:00";
+            state.subLog.unshift({ time: timeStr, text: desc });
+            renderSubLog();
+            saveState();
+        }
+
+        function renderSubLog() {
+            const container = document.getElementById("sub-log-container");
+            if (!container) return;
+            if (state.subLog.length === 0) {
+                container.innerHTML = `<div class="text-slate-500 italic">No substitutions or switches recorded yet.</div>`;
+                return;
+            }
+            container.innerHTML = "";
+            state.subLog.forEach(log => {
+                const div = document.createElement("div");
+                div.className = "bg-slate-900/80 p-1.5 rounded border border-slate-700/50 flex items-center justify-between";
+                div.innerHTML = `
+                    <span class="text-emerald-400 font-bold">${log.time}</span>
+                    <span class="text-slate-300 truncate ml-2">${log.text}</span>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function renderModalRoster() {
+            const container = document.getElementById("modal-roster-list");
+            if (!container) return;
+            container.innerHTML = "";
+            const team = getCurrentTeam();
+            const modalCountEl = document.getElementById("modal-roster-count");
+            if (modalCountEl) modalCountEl.innerText = team.players.length;
+
+            team.players.forEach(p => {
+                const item = document.createElement("div");
+                item.className = "bg-slate-900 border border-slate-700 rounded-xl p-2.5 flex items-center justify-between gap-2";
+                item.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="w-8 h-8 rounded bg-slate-800 text-emerald-400 font-bold text-xs flex items-center justify-center">#${p.number}</span>
+                        <div>
+                            <div class="text-sm font-semibold text-slate-200">${p.name}</div>
+                            <div class="text-[10px] text-slate-400">${p.onField ? 'On Field (' + p.position + ')' : 'Bench'}</div>
+                        </div>
+                    </div>
+                    <button onclick="deletePlayer('${p.id}')" class="text-red-400 hover:text-red-300 p-1.5 rounded-lg hover:bg-red-900/20 transition text-xs">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function openRosterModal() {
+            renderModalRoster();
+            const modal = document.getElementById("roster-modal");
+            if (modal) modal.classList.remove("hidden");
+        }
+
+        function closeRosterModal() {
+            const modal = document.getElementById("roster-modal");
+            if (modal) modal.classList.add("hidden");
+            renderAll();
+        }
+
+        function openSettingsModal() {
+            const modal = document.getElementById("settings-modal");
+            if (modal) modal.classList.remove("hidden");
+        }
+
+        function closeSettingsModal() {
+            const modal = document.getElementById("settings-modal");
+            if (modal) modal.classList.add("hidden");
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById("toast");
+            const msgEl = document.getElementById("toast-msg");
+            if (!toast || !msgEl) return;
+            msgEl.innerText = msg;
+            toast.classList.remove("translate-y-20", "opacity-0");
+            setTimeout(() => {
+                toast.classList.add("translate-y-20", "opacity-0");
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
