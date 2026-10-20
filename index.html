@@ -547,7 +547,7 @@ div.className = p-2 border rounded-xl flex justify-between items-center shadow-s
 const totalSeasonGoals = (p.seasonGoals || 0) + currentGoals;
 const totalSeasonYellows = (p.seasonYellows || 0) + (p.gameYellows || 0);
 const totalSeasonReds = (p.seasonReds || 0) + (p.gameReds || 0);
-​let statString = <span class="text-blue-600 font-semibold">⚽ Match: ${currentGoals}</span> <span class="text-gray-300 mx-1">|</span> <span class="text-purple-600 font-semibold"><i class="fa-solid fa-trophy"></i> Season: ${totalSeasonGoals}</span>;
+​let statString = <span class="text-blue-600 font-semibold">⚽ Match: ${currentGoals} | Season: ${totalSeasonGoals}</span>;
 if (totalSeasonYellows > 0) statString += <span class="text-yellow-600 font-semibold ml-2 text-[10px]">🟨 ${totalSeasonYellows}</span>;
 if (totalSeasonReds > 0) statString += <span class="text-red-600 font-semibold ml-1 text-[10px]">🟥 ${totalSeasonReds}</span>;
 ​const statusBadge = p.status === 'field'
