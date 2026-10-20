@@ -284,7 +284,9 @@ let lastTickTime = 0;
 let actionPlayerId = null;
 let targetEmptyIndex = null;
 ​function init() {
-loadState();
+// Force close all modals on startup to prevent cached opening state bugs
+document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
+​loadState();
 if (state.teams.length === 0) {
 createDemoTeam();
 }
@@ -328,7 +330,7 @@ state.formation = '4-4-2';
 saveState();
 }
 ​function loadState() {
-const saved = localStorage.getItem('soccerAppStore_v4');
+const saved = localStorage.getItem('soccerAppStore_v5');
 if (saved) {
 try {
 const parsed = JSON.parse(saved);
@@ -344,7 +346,7 @@ document.getElementById('formation-select').value = state.formation;
 }
 }
 ​function saveState() {
-localStorage.setItem('soccerAppStore_v4', JSON.stringify(state));
+localStorage.setItem('soccerAppStore_v5', JSON.stringify(state));
 }
 ​function openConfirm(message, onOkCallback) {
 document.getElementById('confirm-message').innerText = message;
