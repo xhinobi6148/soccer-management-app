@@ -7,1129 +7,921 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; overflow-x: hidden; touch-action: manipulation; }
-    
-    .pitch-container { position: relative; background: #4ade80; border: 2px solid white; border-radius: 8px; width: 100%; aspect-ratio: 2/3; max-height: 75vh; margin: 0 auto; overflow: hidden; background-image: linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px); background-size: 10% 10%; }
-    .pitch-line-center { position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: white; transform: translateY(-50%); }
-    .pitch-circle { position: absolute; top: 50%; left: 50%; width: 20%; aspect-ratio: 1; border: 2px solid white; border-radius: 50%; transform: translate(-50%, -50%); }
-    .penalty-area-top, .penalty-area-bottom { position: absolute; width: 50%; height: 15%; border: 2px solid white; left: 25%; }
-    .penalty-area-top { top: 0; border-top: none; }
-    .penalty-area-bottom { bottom: 0; border-bottom: none; }
-    
-    /* Token rules and strict pointer-event blocking on children to prevent misclicks */
-    .player-token { position: absolute; width: 44px; height: 44px; background: #3b82f6; color: white; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; transform: translate(-50%, -50%); cursor: grab; user-select: none; z-index: 10; font-size: 0.75rem; box-shadow: 0 3px 6px rgba(0,0,0,0.4); border: 2px solid white; }
-    .player-token * { pointer-events: none; } /* Fixes the glitch where tapping a badge messed up the click event */
-    
-    .player-token.queued { border-color: #fbbf24; box-shadow: 0 0 12px #fbbf24; animation: pulse 1.5s infinite; }
-    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.7); } 70% { box-shadow: 0 0 0 12px rgba(251, 191, 36, 0); } 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); } }
-    
-    .fullscreen-mode .pitch-container { position: fixed; top: 0; left: 0; width: 100vw; height: calc(100dvh - 80px); max-height: none; z-index: 50; border-radius: 0; border-bottom: 2px solid white; aspect-ratio: auto; }
-    .fullscreen-mode .ui-panel { display: none; }
-    .fullscreen-mode .fs-controls { display: flex; flex-direction: row; position: fixed; bottom: 0; left: 0; width: 100vw; height: 80px; z-index: 60; background: #111827; padding: 10px 16px; border-radius: 0; justify-content: space-between; align-items: center; gap: 8px; box-shadow: 0 -4px 15px rgba(0,0,0,0.5); }
-    
-    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; padding: 1rem; backdrop-filter: blur(2px); }
-    .modal.active { display: flex; }
-    
-    .fs-controls { display: none; }
-    .stat-badge-container { position: absolute; top: -8px; right: -8px; display: flex; gap: 2px; }
-    .stat-badge { font-size: 10px; padding: 1px 4px; border-radius: 999px; font-weight: bold; box-shadow: 0 1px 2px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.5); }
-    .badge-goal { background: white; color: black; }
-    .badge-yellow { background: #facc15; color: #854d0e; }
-    .badge-red { background: #ef4444; color: white; }
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; overflow-x: hidden; touch-action: manipulation; }
+​.pitch-container { position: relative; background: #4ade80; border: 2px solid white; border-radius: 8px; width: 100%; aspect-ratio: 2/3; max-height: calc(100dvh - 180px); margin: 0 auto; overflow: hidden; background-image: linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px); background-size: 10% 10%; }
+.pitch-line-center { position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: white; transform: translateY(-50%); }
+.pitch-circle { position: absolute; top: 50%; left: 50%; width: 20%; aspect-ratio: 1; border: 2px solid white; border-radius: 50%; transform: translate(-50%, -50%); }
+.penalty-area-top, .penalty-area-bottom { position: absolute; width: 50%; height: 15%; border: 2px solid white; left: 25%; }
+.penalty-area-top { top: 0; border-top: none; }
+.penalty-area-bottom { bottom: 0; border-bottom: none; }
+​.player-token { position: absolute; width: 44px; height: 44px; background: #3b82f6; color: white; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; transform: translate(-50%, -50%); cursor: grab; user-select: none; z-index: 10; font-size: 0.75rem; box-shadow: 0 3px 6px rgba(0,0,0,0.4); border: 2px solid white; }
+.player-token * { pointer-events: none; }
+​.player-token.queued { border-color: #fbbf24; box-shadow: 0 0 12px #fbbf24; animation: pulse 1.5s infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.7); } 70% { box-shadow: 0 0 0 12px rgba(251, 191, 36, 0); } 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); } }
+​.fullscreen-mode .pitch-container { position: fixed; top: 0; left: 0; width: 100vw; height: calc(100dvh - 80px); max-height: none; z-index: 50; border-radius: 0; border-bottom: 2px solid white; aspect-ratio: auto; }
+.fullscreen-mode .ui-panel { display: none; }
+.fullscreen-mode .fs-controls { display: flex; flex-direction: row; position: fixed; bottom: 0; left: 0; width: 100vw; height: 80px; z-index: 60; background: #111827; padding: 10px 16px; border-radius: 0; justify-content: space-between; align-items: center; gap: 8px; box-shadow: 0 -4px 15px rgba(0,0,0,0.5); }
+​.modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; padding: 1rem; backdrop-filter: blur(2px); }
+.modal.active { display: flex; }
+​.fs-controls { display: none; }
+.stat-badge-container { position: absolute; top: -8px; right: -8px; display: flex; gap: 2px; }
+.stat-badge { font-size: 10px; padding: 1px 4px; border-radius: 999px; font-weight: bold; box-shadow: 0 1px 2px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.5); }
+.badge-goal { background: white; color: black; }
+.badge-yellow { background: #facc15; color: #854d0e; }
+.badge-red { background: #ef4444; color: white; }
 </style>
 </head>
 <body class="text-gray-800 flex flex-col h-screen overflow-hidden">
-
-<header class="bg-white shadow-sm border-b px-4 py-3 flex justify-between items-center z-20 shrink-0">
-    <h1 class="text-xl md:text-2xl font-bold text-blue-700 whitespace-nowrap overflow-hidden text-ellipsis"><i class="fa-solid fa-futbol"></i> Soccer Management App</h1>
-    <button onclick="openShareModal()" class="bg-blue-50 border border-blue-200 text-blue-700 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shadow-sm hover:bg-blue-100 transition-colors">
-        <i class="fa-solid fa-share-nodes"></i> Share & Export Team
-    </button>
+​<header class="bg-white shadow-sm border-b px-4 py-3 flex justify-between items-center z-20 shrink-0">
+<h1 class="text-xl md:text-2xl font-bold text-blue-700 whitespace-nowrap overflow-hidden text-ellipsis"><i class="fa-solid fa-futbol"></i> Soccer Management App</h1>
+<button onclick="openShareModal()" class="bg-blue-50 border border-blue-200 text-blue-700 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shadow-sm hover:bg-blue-100 transition-colors">
+<i class="fa-solid fa-share-nodes"></i> Share & Export Team
+</button>
 </header>
-
-<div class="max-w-7xl mx-auto w-full p-2 md:p-4 flex flex-col md:flex-row gap-4 h-full overflow-hidden">
-    <div class="w-full md:w-1/3 bg-white rounded-xl shadow-md p-4 flex flex-col h-full overflow-y-auto ui-panel shrink-0">
-        
-        <!-- Teams -->
-        <div class="mb-4">
-            <div class="flex gap-2">
-                <select id="team-select" class="w-full border rounded-lg p-2 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none"></select>
-                <button onclick="openPrompt('Enter new team name:', createNewTeam)" class="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 shadow-sm"><i class="fa-solid fa-plus"></i></button>
-            </div>
-        </div>
-        
-        <!-- Tabs & Modes -->
-        <div class="flex gap-1 mb-4 bg-gray-100 p-1 rounded-lg shrink-0">
-            <button onclick="setMode('match')" id="btn-mode-match" class="flex-1 py-1.5 rounded-md text-xs font-bold bg-white shadow-sm text-blue-600 transition-all">Match Live</button>
-            <button onclick="setMode('stats')" id="btn-mode-stats" class="flex-1 py-1.5 rounded-md text-xs font-bold text-gray-500 hover:text-blue-600 transition-all">Stats</button>
-        </div>
-        
-        <!-- Match Controls -->
-        <div id="match-controls" class="mb-4 p-3 bg-blue-50 rounded-xl border border-blue-100 shadow-inner shrink-0">
-            <div class="flex justify-between items-center mb-3">
-                <span class="font-bold text-3xl font-mono text-blue-900 tracking-wider" id="clock-display">00:00</span>
-                <div class="flex gap-2">
-                    <button onclick="toggleClock()" id="btn-clock" class="bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-bold shadow-md hover:bg-green-700 transition-colors"><i class="fa-solid fa-play"></i> Start</button>
-                    <button onclick="openConfirm('End game and save stats to season totals? This will reset the clock, playing times, and game stats.', endGame)" class="bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-bold shadow-md hover:bg-purple-700 transition-colors whitespace-nowrap"><i class="fa-solid fa-flag-checkered"></i> End Game</button>
-                    <button onclick="openConfirm('Reset match clock to 00:00? (Stats will NOT be saved)', resetClock)" class="bg-red-500 text-white px-3 py-2 rounded-lg text-sm shadow-md hover:bg-red-600" title="Reset Clock"><i class="fa-solid fa-rotate-left"></i></button>
-                </div>
-            </div>
-            <div class="flex justify-between items-center mb-2">
-                <select id="formation-select" onchange="changeFormation()" class="border rounded-lg p-1.5 text-sm w-[48%] bg-white font-medium">
-                    <optgroup label="11v11">
-                        <option value="4-4-2">4-4-2</option>
-                        <option value="4-3-3">4-3-3</option>
-                        <option value="3-5-2">3-5-2</option>
-                    </optgroup>
-                    <optgroup label="9v9">
-                        <option value="3-2-3">3-2-3</option>
-                        <option value="3-3-2">3-3-2</option>
-                        <option value="2-4-2">2-4-2</option>
-                        <option value="4-3-1">4-3-1</option>
-                    </optgroup>
-                    <optgroup label="7v7">
-                        <option value="2-3-1">2-3-1</option>
-                        <option value="3-2-1">3-2-1</option>
-                        <option value="2-1-2-1">2-1-2-1</option>
-                        <option value="3-1-2">3-1-2</option>
-                        <option value="1-4-1">1-4-1</option>
-                    </optgroup>
-                </select>
-                <button onclick="toggleFullScreen()" class="bg-gray-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-900"><i class="fa-solid fa-expand"></i> Pitch</button>
-            </div>
-            <button onclick="openBatchQueue()" class="w-full bg-yellow-500 text-yellow-900 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-yellow-400 mt-1"><i class="fa-solid fa-list-check"></i> Subs Queue (<span id="queue-count">0</span>)</button>
-        </div>
-
-        <!-- Roster Panel ALWAYS visible so stats can be added freely -->
-        <div id="roster-panel" class="flex-1 flex flex-col min-h-0">
-            <div class="flex justify-between items-end border-b pb-1 mb-2">
-                <h2 class="font-bold text-gray-700">Full Roster</h2>
-            </div>
-            <div class="flex gap-1 mb-3 shrink-0">
-                <input type="text" id="new-player-name" placeholder="Add Player..." class="border rounded-lg px-3 py-1.5 flex-1 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none">
-                <button onclick="addPlayer()" class="bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 shadow-sm"><i class="fa-solid fa-plus"></i></button>
-            </div>
-            <div id="bench-list" class="flex-1 overflow-y-auto space-y-2 pr-1 pb-4">
-                <!-- Roster list populates here -->
-            </div>
-        </div>
-    </div>
-
-    <!-- Pitch View -->
-    <div id="pitch-area" class="w-full md:w-2/3 flex items-center justify-center relative">
-        <div class="fs-controls text-white">
-            <div class="text-xl md:text-2xl font-mono text-center tracking-widest text-green-400 font-bold w-16 shrink-0" id="fs-clock">00:00</div>
-            <button onclick="toggleClock()" id="fs-btn-clock" class="bg-green-600 px-2 py-3 rounded-xl font-bold shadow-lg text-xs md:text-sm flex-1 whitespace-nowrap transition-colors"><i class="fa-solid fa-play"></i> Start</button>
-            <button onclick="openBatchQueue()" class="bg-yellow-500 text-yellow-900 px-2 py-3 rounded-xl font-bold shadow-lg text-xs md:text-sm flex-1 whitespace-nowrap hover:bg-yellow-400 transition-colors"><i class="fa-solid fa-list-check"></i> Subs (<span id="fs-queue-count">0</span>)</button>
-            <button onclick="toggleFullScreen()" class="bg-red-500 px-2 py-3 rounded-xl font-bold shadow-lg text-xs md:text-sm flex-1 whitespace-nowrap hover:bg-red-600 transition-colors"><i class="fa-solid fa-compress"></i> Exit</button>
-        </div>
-        
-        <div class="pitch-container shadow-xl" id="pitch">
-            <div class="pitch-line-center"></div>
-            <div class="pitch-circle"></div>
-            <div class="penalty-area-top"></div>
-            <div class="penalty-area-bottom"></div>
-        </div>
-    </div>
-
-    <!-- Stats View -->
-    <div id="stats-panel" class="hidden w-full md:w-2/3 bg-white rounded-xl shadow-md p-4 flex flex-col h-full overflow-y-auto shrink-0 border">
-        <div class="flex justify-between items-center mb-6 shrink-0 border-b pb-4">
-            <div>
-                <h2 class="font-bold text-2xl text-blue-900"><i class="fa-solid fa-chart-simple"></i> Match & Season Stats</h2>
-                <p class="text-sm text-gray-500">Track goals, cards, and playing time live.</p>
-            </div>
-        </div>
-        
-        <h3 class="font-bold text-lg text-blue-800 mb-3"><i class="fa-solid fa-stopwatch"></i> Current Match</h3>
-        <div class="overflow-x-auto bg-gray-50 rounded-lg border shadow-inner mb-6">
-            <table class="w-full text-left text-sm border-collapse min-w-[550px]">
-                <thead>
-                    <tr class="bg-gray-200 text-gray-700">
-                        <th class="p-3 border-b font-bold">Player</th>
-                        <th class="p-3 border-b font-bold">Time</th>
-                        <th class="p-3 border-b font-bold text-center">⚽ Goals</th>
-                        <th class="p-3 border-b font-bold text-center">🟨 YC</th>
-                        <th class="p-3 border-b font-bold text-center">🟥 RC</th>
-                    </tr>
-                </thead>
-                <tbody id="stats-tbody" class="divide-y divide-gray-200 bg-white">
-                </tbody>
-            </table>
-        </div>
-
-        <h3 class="font-bold text-xl text-purple-800 mb-3 mt-8 border-t pt-6"><i class="fa-solid fa-trophy text-yellow-500"></i> Season Totals (All Games)</h3>
-        <div class="overflow-x-auto bg-purple-50 rounded-lg border border-purple-200 shadow-inner">
-            <table class="w-full text-left text-sm border-collapse min-w-[550px]">
-                <thead>
-                    <tr class="bg-purple-200 text-purple-900">
-                        <th class="p-3 border-b border-purple-300 font-bold">Player</th>
-                        <th class="p-3 border-b border-purple-300 font-bold">Total Time</th>
-                        <th class="p-3 border-b border-purple-300 font-bold text-center">⚽ Goals</th>
-                        <th class="p-3 border-b border-purple-300 font-bold text-center">🟨 YC</th>
-                        <th class="p-3 border-b border-purple-300 font-bold text-center">🟥 RC</th>
-                    </tr>
-                </thead>
-                <tbody id="stats-season-tbody" class="divide-y divide-purple-200 bg-white">
-                </tbody>
-            </table>
-        </div>
-    </div>
+​<div class="max-w-7xl mx-auto w-full p-2 md:p-4 flex flex-col md:flex-row gap-4 h-full overflow-hidden">
+<div class="w-full md:w-1/3 bg-white rounded-xl shadow-md p-4 flex flex-col h-full overflow-y-auto ui-panel shrink-0">
+​<!-- Teams -->
+<div class="mb-4">
+<div class="flex gap-2">
+<select id="team-select" class="w-full border rounded-lg p-2 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none"></select>
+<button onclick="openPrompt('Enter new team name:', createNewTeam)" class="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 shadow-sm"><i class="fa-solid fa-plus"></i></button>
 </div>
-
-<!-- Unified Player Action Modal -->
+</div>
+​<!-- Tabs & Modes -->
+<div class="flex gap-1 mb-4 bg-gray-100 p-1 rounded-lg shrink-0">
+<button onclick="setMode('match')" id="btn-mode-match" class="flex-1 py-1.5 rounded-md text-xs font-bold bg-white shadow-sm text-blue-600 transition-all">Match Live</button>
+<button onclick="setMode('stats')" id="btn-mode-stats" class="flex-1 py-1.5 rounded-md text-xs font-bold text-gray-500 hover:text-blue-600 transition-all">Stats</button>
+</div>
+​<!-- Match Controls -->
+<div id="match-controls" class="mb-4 p-3 bg-blue-50 rounded-xl border border-blue-100 shadow-inner shrink-0">
+<div class="flex justify-between items-center mb-3">
+<span class="font-bold text-3xl font-mono text-blue-900 tracking-wider" id="clock-display">00:00</span>
+<div class="flex gap-2">
+<button onclick="toggleClock()" id="btn-clock" class="bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-bold shadow-md hover:bg-green-700 transition-colors"><i class="fa-solid fa-play"></i> Start</button>
+<button onclick="openConfirm('End game and save stats to season totals? This will reset the clock, playing times, and game stats.', endGame)" class="bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-bold shadow-md hover:bg-purple-700 transition-colors whitespace-nowrap"><i class="fa-solid fa-flag-checkered"></i> End Game</button>
+<button onclick="openConfirm('Reset match clock to 00:00? (Stats will NOT be saved)', resetClock)" class="bg-red-500 text-white px-3 py-2 rounded-lg text-sm shadow-md hover:bg-red-600" title="Reset Clock"><i class="fa-solid fa-rotate-left"></i></button>
+</div>
+</div>
+<div class="flex justify-between items-center mb-2">
+<select id="formation-select" onchange="changeFormation()" class="border rounded-lg p-1.5 text-sm w-[48%] bg-white font-medium">
+<optgroup label="11v11">
+<option value="4-4-2">4-4-2</option>
+<option value="4-3-3">4-3-3</option>
+<option value="3-5-2">3-5-2</option>
+</optgroup>
+<optgroup label="9v9">
+<option value="3-2-3">3-2-3</option>
+<option value="3-3-2">3-3-2</option>
+<option value="2-4-2">2-4-2</option>
+<option value="4-3-1">4-3-1</option>
+</optgroup>
+<optgroup label="7v7">
+<option value="2-3-1">2-3-1</option>
+<option value="3-2-1">3-2-1</option>
+<option value="2-1-2-1">2-1-2-1</option>
+<option value="3-1-2">3-1-2</option>
+<option value="1-4-1">1-4-1</option>
+</optgroup>
+</select>
+<button onclick="toggleFullScreen()" class="bg-gray-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-900"><i class="fa-solid fa-expand"></i> Pitch</button>
+</div>
+<button onclick="openBatchQueue()" class="w-full bg-yellow-500 text-yellow-900 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-yellow-400 mt-1"><i class="fa-solid fa-list-check"></i> Subs Queue (<span id="queue-count">0</span>)</button>
+</div>
+​<!-- Roster Panel -->
+<div id="roster-panel" class="flex-1 flex flex-col min-h-0">
+<div class="flex justify-between items-end border-b pb-1 mb-2">
+<h2 class="font-bold text-gray-700">Full Roster</h2>
+</div>
+<div class="flex gap-1 mb-3 shrink-0">
+<input type="text" id="new-player-name" placeholder="Add Player..." class="border rounded-lg px-3 py-1.5 flex-1 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none">
+<button onclick="addPlayer()" class="bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 shadow-sm"><i class="fa-solid fa-plus"></i></button>
+</div>
+<div id="bench-list" class="flex-1 overflow-y-auto space-y-2 pr-1 pb-4">
+</div>
+</div>
+</div>
+​<!-- Pitch View -->
+<div id="pitch-area" class="w-full md:w-2/3 flex items-center justify-center relative">
+<div class="fs-controls text-white">
+<div class="text-xl md:text-2xl font-mono text-center tracking-widest text-green-400 font-bold w-16 shrink-0" id="fs-clock">00:00</div>
+<button onclick="toggleClock()" id="fs-btn-clock" class="bg-green-600 px-2 py-3 rounded-xl font-bold shadow-lg text-xs md:text-sm flex-1 whitespace-nowrap transition-colors"><i class="fa-solid fa-play"></i> Start</button>
+<button onclick="openBatchQueue()" class="bg-yellow-500 text-yellow-900 px-2 py-3 rounded-xl font-bold shadow-lg text-xs md:text-sm flex-1 whitespace-nowrap hover:bg-yellow-400 transition-colors"><i class="fa-solid fa-list-check"></i> Subs (<span id="fs-queue-count">0</span>)</button>
+<button onclick="toggleFullScreen()" class="bg-red-500 px-2 py-3 rounded-xl font-bold shadow-lg text-xs md:text-sm flex-1 whitespace-nowrap hover:bg-red-600 transition-colors"><i class="fa-solid fa-compress"></i> Exit</button>
+</div>
+​<div class="pitch-container shadow-xl" id="pitch">
+<div class="pitch-line-center"></div>
+<div class="pitch-circle"></div>
+<div class="penalty-area-top"></div>
+<div class="penalty-area-bottom"></div>
+</div>
+</div>
+​<!-- Stats View -->
+<div id="stats-panel" class="hidden w-full md:w-2/3 bg-white rounded-xl shadow-md p-4 flex flex-col h-full overflow-y-auto shrink-0 border">
+<div class="flex justify-between items-center mb-6 shrink-0 border-b pb-4">
+<div>
+<h2 class="font-bold text-2xl text-blue-900"><i class="fa-solid fa-chart-simple"></i> Match & Season Stats</h2>
+<p class="text-sm text-gray-500">Track goals, cards, and playing time live.</p>
+</div>
+</div>
+​<h3 class="font-bold text-lg text-blue-800 mb-3"><i class="fa-solid fa-stopwatch"></i> Current Match</h3>
+<div class="overflow-x-auto bg-gray-50 rounded-lg border shadow-inner mb-6">
+<table class="w-full text-left text-sm border-collapse min-w-[550px]">
+<thead>
+<tr class="bg-gray-200 text-gray-700">
+<th class="p-3 border-b font-bold">Player</th>
+<th class="p-3 border-b font-bold">Time</th>
+<th class="p-3 border-b font-bold text-center">⚽ Goals</th>
+<th class="p-3 border-b font-bold text-center">🟨 YC</th>
+<th class="p-3 border-b font-bold text-center">🟥 RC</th>
+</tr>
+</thead>
+<tbody id="stats-tbody" class="divide-y divide-gray-200 bg-white">
+</tbody>
+</table>
+</div>
+​<h3 class="font-bold text-xl text-purple-800 mb-3 mt-8 border-t pt-6"><i class="fa-solid fa-trophy text-yellow-500"></i> Season Totals (All Games)</h3>
+<div class="overflow-x-auto bg-purple-50 rounded-lg border border-purple-200 shadow-inner">
+<table class="w-full text-left text-sm border-collapse min-w-[550px]">
+<thead>
+<tr class="bg-purple-200 text-purple-900">
+<th class="p-3 border-b border-purple-300 font-bold">Player</th>
+<th class="p-3 border-b border-purple-300 font-bold">Total Time</th>
+<th class="p-3 border-b border-purple-300 font-bold text-center">⚽ Goals</th>
+<th class="p-3 border-b border-purple-300 font-bold text-center">🟨 YC</th>
+<th class="p-3 border-b border-purple-300 font-bold text-center">🟥 RC</th>
+</tr>
+</thead>
+<tbody id="stats-season-tbody" class="divide-y divide-purple-200 bg-white">
+</tbody>
+</table>
+</div>
+</div>
+</div>
+​<!-- Unified Player Action Modal -->
 <div id="player-action-modal" class="modal">
-    <div class="bg-white rounded-2xl p-5 w-80 max-w-full m-4 shadow-2xl transform transition-all">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="font-bold text-xl text-blue-800"><span id="action-player-name"></span></h3>
-            <button onclick="closeModal('player-action-modal')" class="text-gray-400 hover:text-gray-600 p-1"><i class="fa-solid fa-xmark fa-lg"></i></button>
-        </div>
-        
-        <div id="action-stat-container">
-            <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Record Match Stat</h4>
-            <div class="space-y-2 mb-6">
-                <!-- Goals -->
-                <div class="flex justify-between items-center bg-gray-50 border border-gray-200 rounded-xl p-2 shadow-sm">
-                    <div class="flex items-center gap-2 w-1/3"><span class="text-xl">⚽</span> <span class="text-[10px] font-bold text-gray-700 uppercase">Goals</span></div>
-                    <div class="flex items-center justify-end gap-3 flex-1">
-                        <button onclick="changePlayerStat(actionPlayerId, 'goal', -1)" class="w-8 h-8 rounded-full bg-white border shadow-sm text-gray-600 font-bold hover:bg-red-50 hover:text-red-500 transition-colors">-</button>
-                        <span id="action-val-goal" class="font-bold font-mono w-4 text-center text-lg">0</span>
-                        <button onclick="changePlayerStat(actionPlayerId, 'goal', 1)" class="w-8 h-8 rounded-full bg-white border shadow-sm text-gray-600 font-bold hover:bg-green-50 hover:text-green-500 transition-colors">+</button>
-                    </div>
-                </div>
-                <!-- Yellow Cards -->
-                <div class="flex justify-between items-center bg-gray-50 border border-gray-200 rounded-xl p-2 shadow-sm">
-                    <div class="flex items-center gap-2 w-1/3"><span class="text-xl">🟨</span> <span class="text-[10px] font-bold text-gray-700 uppercase">Yellow</span></div>
-                    <div class="flex items-center justify-end gap-3 flex-1">
-                        <button onclick="changePlayerStat(actionPlayerId, 'yellow', -1)" class="w-8 h-8 rounded-full bg-white border shadow-sm text-gray-600 font-bold hover:bg-red-50 hover:text-red-500 transition-colors">-</button>
-                        <span id="action-val-yellow" class="font-bold font-mono w-4 text-center text-lg">0</span>
-                        <button onclick="changePlayerStat(actionPlayerId, 'yellow', 1)" class="w-8 h-8 rounded-full bg-white border shadow-sm text-gray-600 font-bold hover:bg-green-50 hover:text-green-500 transition-colors">+</button>
-                    </div>
-                </div>
-                <!-- Red Cards -->
-                <div class="flex justify-between items-center bg-gray-50 border border-gray-200 rounded-xl p-2 shadow-sm">
-                    <div class="flex items-center gap-2 w-1/3"><span class="text-xl">🟥</span> <span class="text-[10px] font-bold text-gray-700 uppercase">Red</span></div>
-                    <div class="flex items-center justify-end gap-3 flex-1">
-                        <button onclick="changePlayerStat(actionPlayerId, 'red', -1)" class="w-8 h-8 rounded-full bg-white border shadow-sm text-gray-600 font-bold hover:bg-red-50 hover:text-red-500 transition-colors">-</button>
-                        <span id="action-val-red" class="font-bold font-mono w-4 text-center text-lg">0</span>
-                        <button onclick="changePlayerStat(actionPlayerId, 'red', 1)" class="w-8 h-8 rounded-full bg-white border shadow-sm text-gray-600 font-bold hover:bg-green-50 hover:text-green-500 transition-colors">+</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="action-sub-container">
-            <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider border-b pb-1 mb-2" id="action-sub-title">Substitute With:</h4>
-            <div id="action-bench-list" class="max-h-48 overflow-y-auto space-y-1 pr-1 pb-2">
-            </div>
-        </div>
-    </div>
+<div class="bg-white rounded-2xl p-5 w-80 max-w-full m-4 shadow-2xl transform transition-all">
+<div class="flex justify-between items-center mb-4">
+<h3 class="font-bold text-xl text-blue-800"><span id="action-player-name"></span></h3>
+<button onclick="closeModal('player-action-modal')" class="text-gray-400 hover:text-gray-600 p-1"><i class="fa-solid fa-xmark fa-lg"></i></button>
 </div>
-
-<!-- Batch Queue Modal -->
+​<div id="action-stat-container">
+<h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Record Match Stat</h4>
+<div class="space-y-2 mb-6">
+<div class="flex justify-between items-center bg-gray-50 border border-gray-200 rounded-xl p-2 shadow-sm">
+<div class="flex items-center gap-2 w-1/3"><span class="text-xl">⚽</span> <span class="text-[10px] font-bold text-gray-700 uppercase">Goals</span></div>
+<div class="flex items-center justify-end gap-3 flex-1">
+<button onclick="changePlayerStat(actionPlayerId, 'goal', -1)" class="w-8 h-8 rounded-full bg-white border shadow-sm text-gray-600 font-bold hover:bg-red-50 hover:text-red-500 transition-colors">-</button>
+<span id="action-val-goal" class="font-bold font-mono w-4 text-center text-lg">0</span>
+<button onclick="changePlayerStat(actionPlayerId, 'goal', 1)" class="w-8 h-8 rounded-full bg-white border shadow-sm text-gray-600 font-bold hover:bg-green-50 hover:text-green-500 transition-colors">+</button>
+</div>
+</div>
+<div class="flex justify-between items-center bg-gray-50 border border-gray-200 rounded-xl p-2 shadow-sm">
+<div class="flex items-center gap-2 w-1/3"><span class="text-xl">🟨</span> <span class="text-[10px] font-bold text-gray-700 uppercase">Yellow</span></div>
+<div class="flex items-center justify-end gap-3 flex-1">
+<button onclick="changePlayerStat(actionPlayerId, 'yellow', -1)" class="w-8 h-8 rounded-full bg-white border shadow-sm text-gray-600 font-bold hover:bg-red-50 hover:text-red-500 transition-colors">-</button>
+<span id="action-val-yellow" class="font-bold font-mono w-4 text-center text-lg">0</span>
+<button onclick="changePlayerStat(actionPlayerId, 'yellow', 1)" class="w-8 h-8 rounded-full bg-white border shadow-sm text-gray-600 font-bold hover:bg-green-50 hover:text-green-500 transition-colors">+</button>
+</div>
+</div>
+<div class="flex justify-between items-center bg-gray-50 border border-gray-200 rounded-xl p-2 shadow-sm">
+<div class="flex items-center gap-2 w-1/3"><span class="text-xl">🟥</span> <span class="text-[10px] font-bold text-gray-700 uppercase">Red</span></div>
+<div class="flex items-center justify-end gap-3 flex-1">
+<button onclick="changePlayerStat(actionPlayerId, 'red', -1)" class="w-8 h-8 rounded-full bg-white border shadow-sm text-gray-600 font-bold hover:bg-red-50 hover:text-red-500 transition-colors">-</button>
+<span id="action-val-red" class="font-bold font-mono w-4 text-center text-lg">0</span>
+<button onclick="changePlayerStat(actionPlayerId, 'red', 1)" class="w-8 h-8 rounded-full bg-white border shadow-sm text-gray-600 font-bold hover:bg-green-50 hover:text-green-500 transition-colors">+</button>
+</div>
+</div>
+</div>
+</div>
+​<div id="action-sub-container">
+<h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider border-b pb-1 mb-2" id="action-sub-title">Substitute With:</h4>
+<div id="action-bench-list" class="max-h-48 overflow-y-auto space-y-1 pr-1 pb-2">
+</div>
+</div>
+</div>
+</div>
+​<!-- Batch Queue Modal -->
 <div id="batch-modal" class="modal">
-    <div class="bg-white rounded-2xl p-5 w-96 max-w-full m-4 shadow-2xl">
-        <div class="flex justify-between items-center mb-4 border-b pb-2">
-            <h3 class="font-bold text-xl text-yellow-600"><i class="fa-solid fa-list-check"></i> Subs Queue</h3>
-            <button onclick="closeModal('batch-modal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark fa-lg"></i></button>
-        </div>
-        <div id="batch-queue-list" class="space-y-2 mb-6 max-h-64 overflow-y-auto pr-1"></div>
-        <button onclick="executeBatchSubs()" class="w-full bg-green-600 text-white py-3 rounded-xl font-bold shadow-md hover:bg-green-700"><i class="fa-solid fa-check"></i> Execute All Subs Now</button>
-    </div>
+<div class="bg-white rounded-2xl p-5 w-96 max-w-full m-4 shadow-2xl">
+<div class="flex justify-between items-center mb-4 border-b pb-2">
+<h3 class="font-bold text-xl text-yellow-600"><i class="fa-solid fa-list-check"></i> Subs Queue</h3>
+<button onclick="closeModal('batch-modal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark fa-lg"></i></button>
 </div>
-
-<!-- Share & Export Team Modal -->
+<div id="batch-queue-list" class="space-y-2 mb-6 max-h-64 overflow-y-auto pr-1"></div>
+<button onclick="executeBatchSubs()" class="w-full bg-green-600 text-white py-3 rounded-xl font-bold shadow-md hover:bg-green-700"><i class="fa-solid fa-check"></i> Execute All Subs Now</button>
+</div>
+</div>
+​<!-- Share & Export Team Modal -->
 <div id="share-modal" class="modal">
-    <div class="bg-white rounded-2xl p-6 w-96 max-w-full m-4 shadow-2xl">
-        <div class="flex justify-between mb-4 items-center border-b pb-2">
-            <h3 class="font-bold text-xl text-blue-900"><i class="fa-solid fa-share-nodes"></i> Share Team Code</h3>
-            <button onclick="closeModal('share-modal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark fa-lg"></i></button>
-        </div>
-        <p class="text-xs text-gray-600 mb-4 leading-relaxed">Export your current team's roster, formation, and stats as a short text code to send to assistant coaches, or paste a code from another coach below.</p>
-        
-        <div class="mb-5 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-            <h4 class="font-bold text-blue-900 mb-1 text-sm">Export Current Team</h4>
-            <p class="text-[11px] text-blue-700 mb-3">Copy your team code to share via text or chat.</p>
-            <button onclick="exportTeamCode()" class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-bold shadow-sm hover:bg-blue-700 text-sm">Copy Team Code</button>
-            <input type="text" id="export-code-box" readonly class="mt-2 w-full border rounded p-2 text-xs font-mono bg-white text-center hidden select-all">
-        </div>
-
-        <div class="p-4 bg-green-50 border border-green-200 rounded-xl">
-            <h4 class="font-bold text-green-900 mb-1 text-sm">Import Team Code</h4>
-            <p class="text-[11px] text-green-700 mb-3">Paste a team code sent by another coach.</p>
-            <textarea id="import-code-input" rows="2" placeholder="Paste code here..." class="w-full border-2 border-green-200 rounded-lg p-2 font-mono text-xs focus:border-green-500 focus:outline-none mb-2"></textarea>
-            <button onclick="importTeamCode()" class="w-full bg-green-600 text-white py-2.5 rounded-lg font-bold shadow-sm hover:bg-green-700 text-sm">Import Team Now</button>
-        </div>
-    </div>
+<div class="bg-white rounded-2xl p-6 w-96 max-w-full m-4 shadow-2xl">
+<div class="flex justify-between mb-4 items-center border-b pb-2">
+<h3 class="font-bold text-xl text-blue-900"><i class="fa-solid fa-share-nodes"></i> Share Team Code</h3>
+<button onclick="closeModal('share-modal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark fa-lg"></i></button>
 </div>
-
-<!-- Generic Confirm Modal -->
+<p class="text-xs text-gray-600 mb-4 leading-relaxed">Export your current team's roster, formation, and stats as a short text code to send to assistant coaches, or paste a code from another coach below.</p>
+​<div class="mb-5 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+<h4 class="font-bold text-blue-900 mb-1 text-sm">Export Current Team</h4>
+<p class="text-[11px] text-blue-700 mb-3">Copy your team code to share via text or chat.</p>
+<button onclick="exportTeamCode()" class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-bold shadow-sm hover:bg-blue-700 text-sm">Copy Team Code</button>
+<input type="text" id="export-code-box" readonly class="mt-2 w-full border rounded p-2 text-xs font-mono bg-white text-center hidden select-all">
+</div>
+​<div class="p-4 bg-green-50 border border-green-200 rounded-xl">
+<h4 class="font-bold text-green-900 mb-1 text-sm">Import Team Code</h4>
+<p class="text-[11px] text-green-700 mb-3">Paste a team code sent by another coach.</p>
+<textarea id="import-code-input" rows="2" placeholder="Paste code here..." class="w-full border-2 border-green-200 rounded-lg p-2 font-mono text-xs focus:border-green-500 focus:outline-none mb-2"></textarea>
+<button onclick="importTeamCode()" class="w-full bg-green-600 text-white py-2.5 rounded-lg font-bold shadow-sm hover:bg-green-700 text-sm">Import Team Now</button>
+</div>
+</div>
+</div>
+​<!-- Generic Confirm Modal -->
 <div id="confirm-modal" class="modal">
-    <div class="bg-white rounded-2xl p-6 w-80 max-w-full m-4 text-center shadow-2xl">
-        <div class="text-4xl text-yellow-500 mb-3"><i class="fa-solid fa-circle-exclamation"></i></div>
-        <p id="confirm-message" class="mb-6 text-gray-800 font-medium"></p>
-        <div class="flex gap-3 justify-center">
-            <button id="btn-confirm-cancel" class="flex-1 py-2.5 bg-gray-100 rounded-xl text-gray-700 font-bold hover:bg-gray-200">Cancel</button>
-            <button id="btn-confirm-ok" class="flex-1 py-2.5 bg-blue-600 rounded-xl text-white font-bold shadow-md hover:bg-blue-700">OK</button>
-        </div>
-    </div>
+<div class="bg-white rounded-2xl p-6 w-80 max-w-full m-4 text-center shadow-2xl">
+<div class="text-4xl text-yellow-500 mb-3"><i class="fa-solid fa-circle-exclamation"></i></div>
+<p id="confirm-message" class="mb-6 text-gray-800 font-medium"></p>
+<div class="flex gap-3 justify-center">
+<button id="btn-confirm-cancel" class="flex-1 py-2.5 bg-gray-100 rounded-xl text-gray-700 font-bold hover:bg-gray-200">Cancel</button>
+<button id="btn-confirm-ok" class="flex-1 py-2.5 bg-blue-600 rounded-xl text-white font-bold shadow-md hover:bg-blue-700">OK</button>
 </div>
-
-<!-- Generic Prompt Modal -->
+</div>
+</div>
+​<!-- Generic Prompt Modal -->
 <div id="prompt-modal" class="modal">
-    <div class="bg-white rounded-2xl p-6 w-80 max-w-full m-4 shadow-2xl">
-        <p id="prompt-message" class="mb-3 text-gray-800 font-bold"></p>
-        <input type="text" id="prompt-input" class="w-full border-2 rounded-xl p-3 mb-5 focus:outline-none focus:border-blue-500 transition-colors">
-        <div class="flex gap-3 justify-end">
-            <button id="btn-prompt-cancel" class="flex-1 py-2.5 bg-gray-100 rounded-xl text-gray-700 font-bold hover:bg-gray-200">Cancel</button>
-            <button id="btn-prompt-ok" class="flex-1 py-2.5 bg-blue-600 rounded-xl text-white font-bold shadow-md hover:bg-blue-700">Save</button>
-        </div>
-    </div>
+<div class="bg-white rounded-2xl p-6 w-80 max-w-full m-4 shadow-2xl">
+<p id="prompt-message" class="mb-3 text-gray-800 font-bold"></p>
+<input type="text" id="prompt-input" class="w-full border-2 rounded-xl p-3 mb-5 focus:outline-none focus:border-blue-500 transition-colors">
+<div class="flex gap-3 justify-end">
+<button id="btn-prompt-cancel" class="flex-1 py-2.5 bg-gray-100 rounded-xl text-gray-700 font-bold hover:bg-gray-200">Cancel</button>
+<button id="btn-prompt-ok" class="flex-1 py-2.5 bg-blue-600 rounded-xl text-white font-bold shadow-md hover:bg-blue-700">Save</button>
 </div>
-
-<script>
-    // App State
-    let state = {
-        teams: [],
-        activeTeamId: null,
-        mode: 'match', // 'match' or 'stats'
-        clock: { time: 0, isRunning: false }, 
-        queuedSubs: [], 
-        formation: '4-4-2',
-        drag: { active: false, element: null, type: null, sourceId: null }
-    };
-    
-    // Formations Config
-    const formationsConfig = {
-        '4-4-2': [ {x:50,y:90}, {x:20,y:75},{x:40,y:75},{x:60,y:75},{x:80,y:75}, {x:20,y:50},{x:40,y:50},{x:60,y:50},{x:80,y:50}, {x:35,y:25},{x:65,y:25} ],
-        '4-3-3': [ {x:50,y:90}, {x:20,y:75},{x:40,y:75},{x:60,y:75},{x:80,y:75}, {x:30,y:50},{x:50,y:55},{x:70,y:50}, {x:25,y:25},{x:50,y:20},{x:75,y:25} ],
-        '3-5-2': [ {x:50,y:90}, {x:30,y:75},{x:50,y:75},{x:70,y:75}, {x:15,y:50},{x:35,y:55},{x:50,y:45},{x:65,y:55},{x:85,y:50}, {x:35,y:25},{x:65,y:25} ],
-        '3-2-3': [ {x:50,y:90}, {x:25,y:75},{x:50,y:75},{x:75,y:75}, {x:35,y:55},{x:65,y:55}, {x:20,y:30},{x:50,y:25},{x:80,y:30} ],
-        '3-3-2': [ {x:50,y:90}, {x:25,y:75},{x:50,y:75},{x:75,y:75}, {x:25,y:50},{x:50,y:50},{x:75,y:50}, {x:35,y:25},{x:65,y:25} ],
-        '2-4-2': [ {x:50,y:90}, {x:35,y:75},{x:65,y:75}, {x:15,y:50},{x:40,y:50},{x:60,y:50},{x:85,y:50}, {x:35,y:25},{x:65,y:25} ],
-        '4-3-1': [ {x:50,y:90}, {x:20,y:75},{x:40,y:75},{x:60,y:75},{x:80,y:75}, {x:25,y:50},{x:50,y:50},{x:75,y:50}, {x:50,y:25} ],
-        '2-3-1': [ {x:50,y:90}, {x:35,y:75},{x:65,y:75}, {x:20,y:50},{x:50,y:50},{x:80,y:50}, {x:50,y:25} ],
-        '3-2-1': [ {x:50,y:90}, {x:25,y:75},{x:50,y:75},{x:75,y:75}, {x:35,y:50},{x:65,y:50}, {x:50,y:25} ],
-        '2-1-2-1': [ {x:50,y:90}, {x:35,y:75},{x:65,y:75}, {x:50,y:60}, {x:30,y:40},{x:70,y:40}, {x:50,y:20} ],
-        '3-1-2': [ {x:50,y:90}, {x:25,y:75},{x:50,y:75},{x:75,y:75}, {x:50,y:55}, {x:35,y:25},{x:65,y:25} ],
-        '1-4-1': [ {x:50,y:90}, {x:50,y:75}, {x:15,y:50},{x:35,y:50},{x:65,y:50},{x:85,y:50}, {x:50,y:25} ]
-    };
-
-    let localClockInterval = null;
-    let lastTickTime = 0;
-    let actionPlayerId = null;
-    let targetEmptyIndex = null;
-
-    function init() {
-        loadState();
-        if (state.teams.length === 0) {
-            createDemoTeam();
-        }
-        updateTeamSelect();
-        
-        if (state.clock.isRunning) {
-            lastTickTime = Date.now();
-            localClockInterval = setInterval(tick, 1000);
-            updateClockButtons(true);
-        }
-        
-        render();
-        
-        document.addEventListener('mousemove', onDragMove);
-        document.addEventListener('mouseup', onDragEnd);
-        document.addEventListener('touchmove', onDragMove, {passive: false});
-        document.addEventListener('touchend', onDragEnd);
-    }
-
-    function createDemoTeam() {
-        const teamId = Date.now().toString();
-        const demoTeam = { id: teamId, name: "Demo Team FC", roster: [] };
-        
-        const demoNames = [
-            "GK Alex", "LB Brian", "CB Chris", "CB David", "RB Evan",
-            "LM Frank", "CM George", "CM Harry", "RM Ian", 
-            "ST Jack", "ST Kevin", 
-            "Liam", "Mike", "Noah", "Owen"
-        ];
-        
-        demoNames.forEach((name, index) => {
-            const isField = index < 11;
-            demoTeam.roster.push({
-                id: 'demo-' + index,
-                name: name,
-                timePlayed: 0,
-                seasonTime: 0,
-                status: isField ? 'field' : 'bench',
-                positionIndex: isField ? index : null,
-                gameGoals: 0, seasonGoals: 0,
-                gameYellows: 0, seasonYellows: 0,
-                gameReds: 0, seasonReds: 0
-            });
-        });
-        
-        state.teams.push(demoTeam);
-        state.activeTeamId = teamId;
-        state.formation = '4-4-2';
-        saveState();
-    }
-
-    function loadState() {
-        const saved = localStorage.getItem('soccerAppStore_v3');
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                state.teams = parsed.teams || [];
-                state.activeTeamId = parsed.activeTeamId;
-                state.formation = parsed.formation || '4-4-2';
-                state.clock = parsed.clock || { time: 0, isRunning: false };
-                state.queuedSubs = parsed.queuedSubs || [];
-                if(document.getElementById('formation-select')) {
-                    document.getElementById('formation-select').value = state.formation;
-                }
-            } catch(e) {}
-        }
-    }
-
-    function saveState() {
-        localStorage.setItem('soccerAppStore_v3', JSON.stringify(state));
-    }
-
-    function openConfirm(message, onOkCallback) {
-        document.getElementById('confirm-message').innerText = message;
-        const modal = document.getElementById('confirm-modal');
-        modal.classList.add('active');
-        
-        document.getElementById('btn-confirm-cancel').onclick = () => modal.classList.remove('active');
-        document.getElementById('btn-confirm-ok').onclick = () => {
-            modal.classList.remove('active');
-            if (onOkCallback) onOkCallback();
-        };
-    }
-
-    function openPrompt(message, onSaveCallback) {
-        document.getElementById('prompt-message').innerText = message;
-        const input = document.getElementById('prompt-input');
-        input.value = '';
-        const modal = document.getElementById('prompt-modal');
-        modal.classList.add('active');
-        input.focus();
-        
-        document.getElementById('btn-prompt-cancel').onclick = () => modal.classList.remove('active');
-        document.getElementById('btn-prompt-ok').onclick = () => {
-            if (input.value.trim()) {
-                modal.classList.remove('active');
-                if (onSaveCallback) onSaveCallback(input.value.trim());
-            }
-        };
-    }
-
-    function closeModal(id) {
-        document.getElementById(id).classList.remove('active');
-    }
-
-    function getActiveTeam() { return state.teams.find(t => t.id === state.activeTeamId); }
-
-    function createNewTeam(name) {
-        const newTeam = { id: Date.now().toString(), name: name, roster: [] };
-        state.teams.push(newTeam);
-        state.activeTeamId = newTeam.id;
-        state.queuedSubs = [];
-        state.clock = { time: 0, isRunning: false };
-        if (localClockInterval) clearInterval(localClockInterval);
-        saveState();
-        updateTeamSelect();
-        render();
-    }
-
-    function updateTeamSelect() {
-        const select = document.getElementById('team-select');
-        select.innerHTML = '';
-        state.teams.forEach(t => {
-            const opt = document.createElement('option');
-            opt.value = t.id;
-            opt.textContent = t.name;
-            if (t.id === state.activeTeamId) opt.selected = true;
-            select.appendChild(opt);
-        });
-        select.onchange = (e) => {
-            state.activeTeamId = e.target.value;
-            state.queuedSubs = [];
-            state.clock = { time: 0, isRunning: false };
-            if (localClockInterval) clearInterval(localClockInterval);
-            saveState();
-            render();
-        };
-    }
-
-    function addPlayer() {
-        const input = document.getElementById('new-player-name');
-        const name = input.value.trim();
-        if (!name) return;
-        
-        const team = getActiveTeam();
-        const config = formationsConfig[state.formation];
-        const fieldCount = team.roster.filter(p => p.status === 'field').length;
-        
-        const newPlayer = {
-            id: Date.now().toString(), name: name, timePlayed: 0, seasonTime: 0,
-            status: fieldCount < config.length ? 'field' : 'bench',
-            positionIndex: fieldCount < config.length ? fieldCount : null,
-            gameGoals: 0, seasonGoals: 0,
-            gameYellows: 0, seasonYellows: 0,
-            gameReds: 0, seasonReds: 0
-        };
-        
-        team.roster.push(newPlayer);
-        input.value = '';
-        saveState();
-        render();
-    }
-
-    function formatTime(seconds) {
-        const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-        const s = (seconds % 60).toString().padStart(2, '0');
-        return `${m}:${s}`;
-    }
-
-    function updateClockButtons(isRunning) {
-        const btn = document.getElementById('btn-clock');
-        const fsBtn = document.getElementById('fs-btn-clock');
-        if (isRunning) {
-            btn.innerHTML = '<i class="fa-solid fa-pause"></i> Pause';
-            btn.className = "bg-yellow-500 text-yellow-900 px-3 py-2 rounded-lg text-sm font-bold shadow-md hover:bg-yellow-400 transition-colors";
-            fsBtn.innerHTML = '<i class="fa-solid fa-pause"></i> Pause';
-            fsBtn.className = "bg-yellow-500 text-yellow-900 px-2 py-3 rounded-xl font-bold shadow-lg text-xs md:text-sm flex-1 whitespace-nowrap transition-colors";
-        } else {
-            btn.innerHTML = '<i class="fa-solid fa-play"></i> Start';
-            btn.className = "bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-bold shadow-md hover:bg-green-700 transition-colors";
-            fsBtn.innerHTML = '<i class="fa-solid fa-play"></i> Start';
-            fsBtn.className = "bg-green-600 text-white px-2 py-3 rounded-xl font-bold shadow-lg text-xs md:text-sm flex-1 whitespace-nowrap transition-colors";
-        }
-    }
-
-    function toggleClock() {
-        state.clock.isRunning = !state.clock.isRunning;
-        updateClockButtons(state.clock.isRunning);
-        
-        if (state.clock.isRunning) {
-            lastTickTime = Date.now();
-            if(!localClockInterval) localClockInterval = setInterval(tick, 1000);
-        } else {
-            clearInterval(localClockInterval);
-            localClockInterval = null;
-        }
-        saveState();
-        render();
-    }
-
-    function tick() {
-        const now = Date.now();
-        const deltaSecs = Math.floor((now - lastTickTime) / 1000);
-        
-        if (deltaSecs >= 1) {
-            state.clock.time += deltaSecs;
-            lastTickTime += (deltaSecs * 1000);
-            
-            const team = getActiveTeam();
-            if (team) {
-                team.roster.forEach(p => {
-                    if (p.status === 'field') {
-                        p.timePlayed += deltaSecs;
-                        
-                        const token = document.getElementById(`token-${p.id}`);
-                        if (token) {
-                            const timeBadge = token.querySelector('.time-badge');
-                            if (timeBadge) timeBadge.innerText = formatTime(p.timePlayed);
-                        }
-                        if (state.mode === 'stats') {
-                            const statRowTime = document.getElementById(`stat-time-${p.id}`);
-                            if (statRowTime) statRowTime.innerText = formatTime(p.timePlayed);
-                            const statSeasonTime = document.getElementById(`stat-season-time-${p.id}`);
-                            if (statSeasonTime) statSeasonTime.innerText = formatTime((p.seasonTime || 0) + p.timePlayed);
-                        }
-                        const rosterRowTime = document.getElementById(`roster-time-${p.id}`);
-                        if (rosterRowTime) rosterRowTime.innerText = formatTime(p.timePlayed);
-                    }
-                });
-            }
-            
-            document.getElementById('clock-display').innerText = formatTime(state.clock.time);
-            document.getElementById('fs-clock').innerText = formatTime(state.clock.time);
-            
-            if (state.clock.time % 5 === 0) saveState();
-        }
-    }
-
-    function resetClock() {
-        state.clock.time = 0;
-        state.clock.isRunning = false;
-        if(localClockInterval) clearInterval(localClockInterval);
-        localClockInterval = null;
-        updateClockButtons(false);
-        document.getElementById('clock-display').innerText = "00:00";
-        document.getElementById('fs-clock').innerText = "00:00";
-        saveState();
-        render();
-    }
-
-    function endGame() {
-        const team = getActiveTeam();
-        if (team) {
-            team.roster.forEach(p => {
-                p.seasonTime = (p.seasonTime || 0) + (p.timePlayed || 0);
-                p.seasonGoals = (p.seasonGoals || 0) + (p.gameGoals || 0);
-                p.seasonYellows = (p.seasonYellows || 0) + (p.gameYellows || 0);
-                p.seasonReds = (p.seasonReds || 0) + (p.gameReds || 0);
-                
-                p.gameGoals = 0; p.gameYellows = 0; p.gameReds = 0;
-                p.timePlayed = 0;
-            });
-            state.clock.time = 0;
-            state.clock.isRunning = false;
-            if(localClockInterval) clearInterval(localClockInterval);
-            localClockInterval = null;
-            
-            setMode('stats');
-            saveState();
-            render();
-        }
-    }
-
-    function render() {
-        renderBench();
-        if(state.mode !== 'stats') renderPitch();
-        if(state.mode === 'stats') renderStats();
-        updateQueueCounts();
-        
-        document.getElementById('clock-display').innerText = formatTime(state.clock.time);
-        document.getElementById('fs-clock').innerText = formatTime(state.clock.time);
-        updateClockButtons(state.clock.isRunning);
-    }
-
-    function renderBench() {
-        const team = getActiveTeam();
-        const list = document.getElementById('bench-list');
-        list.innerHTML = '';
-        if (!team) return;
-        
-        const sortedRoster = [...team.roster].sort((a, b) => {
-            if (a.status === b.status) return a.name.localeCompare(b.name);
-            return a.status === 'field' ? -1 : 1;
-        });
-        
-        sortedRoster.forEach(p => {
-            const isQueued = state.queuedSubs.some(q => q.onId === p.id || q.offId === p.id);
-            const div = document.createElement('div');
-            div.className = `p-2 border rounded-xl flex justify-between items-center shadow-sm transition-colors ${isQueued ? 'bg-yellow-50 border-yellow-300' : 'bg-white'}`;
-            
-            const currentGoals = p.gameGoals || 0;
-            const totalSeasonGoals = (p.seasonGoals || 0) + currentGoals;
-            const totalSeasonYellows = (p.seasonYellows || 0) + (p.gameYellows || 0);
-            const totalSeasonReds = (p.seasonReds || 0) + (p.gameReds || 0);
-            
-            let statString = `<span class="text-blue-600 font-semibold">⚽ Match: ${currentGoals}</span> <span class="text-gray-300 mx-1">|</span> <span class="text-purple-600 font-semibold"><i class="fa-solid fa-trophy"></i> Season: ${totalSeasonGoals}</span>`;
-            if (totalSeasonYellows > 0) statString += `<span class="text-yellow-600 font-semibold ml-2 text-[10px]">🟨 ${totalSeasonYellows}</span>`;
-            if (totalSeasonReds > 0) statString += `<span class="text-red-600 font-semibold ml-1 text-[10px]">🟥 ${totalSeasonReds}</span>`;
-            
-            const statusBadge = p.status === 'field' 
-                ? '<span class="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Field</span>' 
-                : '<span class="bg-gray-100 text-gray-500 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Bench</span>';
-            
-            div.innerHTML = `
-                <div class="flex-1 cursor-pointer pr-2" onclick="openPlayerActionModal('${p.id}')">
-                    <div class="font-bold text-sm text-gray-800 flex items-center gap-2">
-                        ${p.name} 
-                        ${statusBadge}
-                        ${isQueued ? '<span class="text-[10px] text-yellow-600 font-bold uppercase tracking-wider">(Queued)</span>' : ''}
-                    </div>
-                    <div class="flex gap-3 text-xs text-gray-500 mt-1">
-                        <span id="roster-time-${p.id}" class="font-mono bg-gray-100 px-1 rounded">${formatTime(p.timePlayed)}</span>
-                        <span>${statString}</span>
-                    </div>
-                </div>
-                <button onclick="openConfirm('Remove ${p.name} from roster?', () => removePlayer('${p.id}'))" class="text-red-400 hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg transition-colors"><i class="fa-solid fa-trash"></i></button>
-            `;
-            list.appendChild(div);
-        });
-    }
-
-    function removePlayer(id) {
-        const team = getActiveTeam();
-        team.roster = team.roster.filter(p => p.id !== id);
-        state.queuedSubs = state.queuedSubs.filter(q => q.onId !== id && q.offId !== id);
-        saveState();
-        render();
-    }
-
-    function renderPitch() {
-        const team = getActiveTeam();
-        const pitch = document.getElementById('pitch');
-        document.querySelectorAll('.player-token').forEach(el => el.remove());
-        if (!team) return;
-        
-        const fieldPlayers = team.roster.filter(p => p.status === 'field');
-        const config = formationsConfig[state.formation];
-        
-        fieldPlayers.forEach(p => {
-            const token = document.createElement('div');
-            const isQueued = state.queuedSubs.some(q => q.offId === p.id);
-            token.className = `player-token ${isQueued ? 'queued' : ''}`;
-            token.id = `token-${p.id}`;
-            
-            const pos = config[p.positionIndex] || {x:50, y:50};
-            token.style.left = `${pos.x}%`;
-            token.style.top = `${pos.y}%`;
-            
-            const nameInitial = p.name.substring(0, 3).toUpperCase();
-            
-            let badges = '';
-            if (p.gameGoals > 0) badges += `<span class="stat-badge badge-goal">⚽${p.gameGoals}</span>`;
-            if (p.gameYellows > 0) badges += `<span class="stat-badge badge-yellow">${p.gameYellows}</span>`;
-            if (p.gameReds > 0) badges += `<span class="stat-badge badge-red">${p.gameReds}</span>`;
-            
-            token.innerHTML = `
-                ${badges ? `<div class="stat-badge-container">${badges}</div>` : ''}
-                <div class="font-bold leading-tight mt-1">${nameInitial}</div>
-                <div class="time-badge font-mono text-[9px] leading-tight text-blue-100">${formatTime(p.timePlayed)}</div>
-            `;
-            
-            token.onmousedown = (e) => startDrag(e, p.id);
-            token.ontouchstart = (e) => startDrag(e, p.id);
-            pitch.appendChild(token);
-        });
-        
-        if (state.mode === 'match' && fieldPlayers.length < config.length) {
-            const occupiedIndices = fieldPlayers.map(p => p.positionIndex);
-            for (let i = 0; i < config.length; i++) {
-                if (!occupiedIndices.includes(i)) {
-                    const empty = document.createElement('div');
-                    empty.className = 'player-token bg-gray-200 border-dashed border-gray-400 text-gray-500 opacity-60';
-                    empty.style.left = `${config[i].x}%`;
-                    empty.style.top = `${config[i].y}%`;
-                    empty.innerHTML = `<i class="fa-solid fa-plus fa-lg"></i>`;
-                    empty.dataset.positionIndex = i; 
-                    
-                    empty.onmousedown = (e) => { e.preventDefault(); openEmptyPositionModal(i); };
-                    empty.ontouchstart = (e) => { e.preventDefault(); openEmptyPositionModal(i); };
-                    
-                    pitch.appendChild(empty);
-                }
-            }
-        }
-    }
-
-    function startDrag(e, playerId) {
-        const ev = e.touches ? e.touches[0] : e;
-        state.drag = {
-            active: true, id: playerId, startX: ev.clientX, startY: ev.clientY, isClick: true,
-            token: document.getElementById(`token-${playerId}`)
-        };
-    }
-
-    function onDragMove(e) {
-        if (!state.drag.active) return;
-        const ev = e.touches ? e.touches[0] : e;
-        const dx = ev.clientX - state.drag.startX;
-        const dy = ev.clientY - state.drag.startY;
-        
-        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) state.drag.isClick = false;
-        
-        if (!state.drag.isClick) {
-            e.preventDefault();
-            const pitch = document.getElementById('pitch');
-            const rect = pitch.getBoundingClientRect();
-            let x = ((ev.clientX - rect.left) / rect.width) * 100;
-            let y = ((ev.clientY - rect.top) / rect.height) * 100;
-            x = Math.max(0, Math.min(100, x)); y = Math.max(0, Math.min(100, y));
-            
-            state.drag.token.style.left = `${x}%`;
-            state.drag.token.style.top = `${y}%`;
-            state.drag.currentX = x; state.drag.currentY = y;
-        }
-    }
-
-    function onDragEnd(e) {
-        if (!state.drag.active) return;
-        
-        if (state.drag.isClick) {
-            openPlayerActionModal(state.drag.id);
-        } else {
-            const team = getActiveTeam();
-            const player = team.roster.find(p => p.id === state.drag.id);
-            const ev = e.changedTouches ? e.changedTouches[0] : e;
-            
-            state.drag.token.style.visibility = 'hidden';
-            const dropTarget = document.elementFromPoint(ev.clientX, ev.clientY);
-            state.drag.token.style.visibility = 'visible';
-            
-            const targetToken = dropTarget ? dropTarget.closest('.player-token') : null;
-            
-            if (targetToken && targetToken.id !== `token-${state.drag.id}`) {
-                if (targetToken.id && targetToken.id.startsWith('token-')) {
-                    const targetId = targetToken.id.replace('token-', '');
-                    const targetPlayer = team.roster.find(p => p.id === targetId);
-                    if (targetPlayer) {
-                        const temp = player.positionIndex;
-                        player.positionIndex = targetPlayer.positionIndex;
-                        targetPlayer.positionIndex = temp;
-                    }
-                } else if (targetToken.dataset.positionIndex !== undefined) {
-                    player.positionIndex = parseInt(targetToken.dataset.positionIndex);
-                }
-            }
-            saveState();
-            renderPitch();
-        }
-        state.drag.active = false;
-    }
-
-    function openPlayerActionModal(playerId) {
-        actionPlayerId = playerId;
-        targetEmptyIndex = null;
-        const team = getActiveTeam();
-        const p = team.roster.find(x => x.id === playerId);
-        
-        document.getElementById('action-player-name').innerText = p.name;
-        document.getElementById('action-stat-container').classList.remove('hidden');
-        
-        document.getElementById('action-val-goal').innerText = p.gameGoals || 0;
-        document.getElementById('action-val-yellow').innerText = p.gameYellows || 0;
-        document.getElementById('action-val-red').innerText = p.gameReds || 0;
-
-        const list = document.getElementById('action-bench-list');
-        list.innerHTML = '';
-        
-        if (p.status === 'field') {
-            document.getElementById('action-sub-container').classList.remove('hidden');
-            document.getElementById('action-sub-title').innerText = "Substitute With:";
-            const benchPlayers = team.roster.filter(x => x.status === 'bench');
-            
-            if (benchPlayers.length === 0) {
-                list.innerHTML = '<div class="text-sm text-gray-500 italic">No players available on bench.</div>';
-            } else {
-                benchPlayers.forEach(b => {
-                    if (state.queuedSubs.some(q => q.onId === b.id)) return;
-                    
-                    const div = document.createElement('div');
-                    div.className = 'flex justify-between items-center p-2 border rounded-lg hover:bg-gray-50 mb-1';
-                    div.innerHTML = `
-                        <div class="text-sm font-bold text-gray-700">${b.name} <span class="text-xs font-normal text-gray-500 ml-1 font-mono">${formatTime(b.timePlayed)}</span></div>
-                        <div class="flex gap-2">
-                            <button onclick="queueSub('${p.id}', '${b.id}')" class="bg-yellow-100 text-yellow-700 hover:bg-yellow-200 px-3 py-1.5 rounded text-xs font-bold transition-colors">Queue</button>
-                            <button onclick="executeImmediateSub('${p.id}', '${b.id}')" class="bg-blue-600 text-white hover:bg-blue-700 px-3 py-1.5 rounded text-xs font-bold shadow-sm transition-colors">Sub Now</button>
-                        </div>
-                    `;
-                    list.appendChild(div);
-                });
-            }
-        } else {
-            document.getElementById('action-sub-container').classList.add('hidden');
-        }
-        
-        document.getElementById('player-action-modal').classList.add('active');
-    }
-
-    function openEmptyPositionModal(positionIndex) {
-        targetEmptyIndex = positionIndex;
-        actionPlayerId = null;
-        
-        document.getElementById('action-player-name').innerText = "Fill Empty Position";
-        document.getElementById('action-stat-container').classList.add('hidden');
-        document.getElementById('action-sub-container').classList.remove('hidden');
-        document.getElementById('action-sub-title').innerText = "Select Player to Field:";
-        
-        const team = getActiveTeam();
-        const list = document.getElementById('action-bench-list');
-        list.innerHTML = '';
-        
-        const benchPlayers = team.roster.filter(x => x.status === 'bench');
-        if (benchPlayers.length === 0) {
-            list.innerHTML = '<div class="text-sm text-gray-500 italic p-2 text-center">No players available on bench.</div>';
-        } else {
-            benchPlayers.forEach(b => {
-                const div = document.createElement('div');
-                div.className = 'flex justify-between items-center p-2 border rounded-lg hover:bg-gray-50 mb-1';
-                div.innerHTML = `
-                    <div class="text-sm font-bold text-gray-700">${b.name} <span class="text-xs font-normal text-gray-500 ml-1 font-mono">${formatTime(b.timePlayed)}</span></div>
-                    <button onclick="fillPositionWith('${b.id}')" class="bg-green-600 text-white hover:bg-green-700 px-4 py-1.5 rounded text-xs font-bold shadow-sm transition-colors">Add to Field</button>
-                `;
-                list.appendChild(div);
-            });
-        }
-        
-        document.getElementById('player-action-modal').classList.add('active');
-    }
-
-    function fillPositionWith(benchPlayerId) {
-        const team = getActiveTeam();
-        const p = team.roster.find(x => x.id === benchPlayerId);
-        if(p && targetEmptyIndex !== null) {
-            p.status = 'field';
-            p.positionIndex = targetEmptyIndex;
-            targetEmptyIndex = null;
-            closeModal('player-action-modal');
-            saveState();
-            render();
-        }
-    }
-
-    window.changePlayerStat = function(playerId, type, delta) {
-        if(!playerId) return;
-        const team = getActiveTeam();
-        const p = team.roster.find(x => x.id === playerId);
-        if(!p) return;
-        
-        if (type === 'goal') p.gameGoals = Math.max(0, (p.gameGoals || 0) + delta);
-        if (type === 'yellow') p.gameYellows = Math.max(0, (p.gameYellows || 0) + delta);
-        if (type === 'red') p.gameReds = Math.max(0, (p.gameReds || 0) + delta);
-        
-        if (actionPlayerId === playerId) {
-            const valEl = document.getElementById(`action-val-${type}`);
-            if(valEl) valEl.innerText = p[`game${type.charAt(0).toUpperCase() + type.slice(1)}s`] || 0;
-        }
-        
-        saveState();
-        render();
-    }
-
-    function queueSub(offId, onId) {
-        state.queuedSubs.push({ offId, onId });
-        closeModal('player-action-modal');
-        saveState();
-        render();
-    }
-
-    function executeImmediateSub(offId, onId) {
-        const team = getActiveTeam();
-        const offPlayer = team.roster.find(p => p.id === offId);
-        const onPlayer = team.roster.find(p => p.id === onId);
-        
-        onPlayer.status = 'field';
-        onPlayer.positionIndex = offPlayer.positionIndex;
-        
-        offPlayer.status = 'bench';
-        offPlayer.positionIndex = null;
-        
-        closeModal('player-action-modal');
-        saveState();
-        render();
-    }
-
-    function updateQueueCounts() {
-        document.getElementById('queue-count').innerText = state.queuedSubs.length;
-        document.getElementById('fs-queue-count').innerText = state.queuedSubs.length;
-    }
-
-    function openBatchQueue() {
-        const list = document.getElementById('batch-queue-list');
-        list.innerHTML = '';
-        const team = getActiveTeam();
-        
-        if (state.queuedSubs.length === 0) {
-            list.innerHTML = '<div class="text-gray-500 italic p-4 text-center bg-gray-50 rounded-lg">Queue is empty.</div>';
-        } else {
-            state.queuedSubs.forEach((sub, index) => {
-                const offP = team.roster.find(p => p.id === sub.offId);
-                const onP = team.roster.find(p => p.id === sub.onId);
-                const div = document.createElement('div');
-                div.className = 'flex justify-between items-center p-3 border rounded-xl bg-yellow-50 border-yellow-200';
-                div.innerHTML = `
-                    <div class="flex-1 flex justify-between px-2 items-center">
-                        <span class="text-red-600 font-bold text-sm"><i class="fa-solid fa-arrow-down mr-1"></i> ${offP.name}</span>
-                        <i class="fa-solid fa-right-left text-gray-400 text-xs"></i>
-                        <span class="text-green-700 font-bold text-sm"><i class="fa-solid fa-arrow-up mr-1"></i> ${onP.name}</span>
-                    </div>
-                    <button onclick="removeQueuedSub(${index})" class="text-gray-400 hover:text-red-600 px-3 py-1 rounded transition-colors"><i class="fa-solid fa-xmark"></i></button>
-                `;
-                list.appendChild(div);
-            });
-        }
-        document.getElementById('batch-modal').classList.add('active');
-    }
-
-    function removeQueuedSub(index) {
-        state.queuedSubs.splice(index, 1);
-        openBatchQueue();
-        saveState();
-        render();
-    }
-
-    function executeBatchSubs() {
-        if(state.queuedSubs.length === 0) return closeModal('batch-modal');
-        const team = getActiveTeam();
-        state.queuedSubs.forEach(sub => {
-            const offPlayer = team.roster.find(p => p.id === sub.offId);
-            const onPlayer = team.roster.find(p => p.id === sub.onId);
-            if (offPlayer && onPlayer) {
-                onPlayer.status = 'field';
-                onPlayer.positionIndex = offPlayer.positionIndex;
-                offPlayer.status = 'bench'; offPlayer.positionIndex = null;
-            }
-        });
-        state.queuedSubs = [];
-        closeModal('batch-modal');
-        saveState();
-        render();
-    }
-
-    function renderStats() {
-        const team = getActiveTeam();
-        const tbody = document.getElementById('stats-tbody');
-        const seasonTbody = document.getElementById('stats-season-tbody');
-        tbody.innerHTML = '';
-        if(seasonTbody) seasonTbody.innerHTML = '';
-        if (!team) return;
-        
-        team.roster.forEach(p => {
-            const tr = document.createElement('tr');
-            tr.className = 'border-b hover:bg-blue-50 transition-colors';
-            
-            const gBadge = p.gameGoals > 0 ? 'bg-green-100 text-green-800 rounded-full font-bold px-1' : 'px-1';
-            const yBadge = p.gameYellows > 0 ? 'bg-yellow-100 text-yellow-800 rounded-full font-bold px-1' : 'px-1';
-            const rBadge = p.gameReds > 0 ? 'bg-red-100 text-red-800 rounded-full font-bold px-1' : 'px-1';
-            
-            tr.innerHTML = `
-                <td class="p-3 font-bold text-gray-800">${p.name}</td>
-                <td class="p-3 font-mono text-xs text-gray-600" id="stat-time-${p.id}">${formatTime(p.timePlayed)}</td>
-                <td class="p-3 text-center whitespace-nowrap">
-                    <button onclick="changePlayerStat('${p.id}', 'goal', -1)" class="text-gray-400 hover:text-red-500 px-1 py-1 rounded transition-colors"><i class="fa-solid fa-minus"></i></button>
-                    <span class="${gBadge} inline-block min-w-[20px] text-center">${p.gameGoals || 0}</span> 
-                    <button onclick="changePlayerStat('${p.id}', 'goal', 1)" class="text-gray-400 hover:text-green-500 px-1 py-1 rounded transition-colors"><i class="fa-solid fa-plus"></i></button>
-                </td>
-                <td class="p-3 text-center whitespace-nowrap">
-                    <button onclick="changePlayerStat('${p.id}', 'yellow', -1)" class="text-gray-400 hover:text-red-500 px-1 py-1 rounded transition-colors"><i class="fa-solid fa-minus"></i></button>
-                    <span class="${yBadge} inline-block min-w-[20px] text-center">${p.gameYellows || 0}</span> 
-                    <button onclick="changePlayerStat('${p.id}', 'yellow', 1)" class="text-gray-400 hover:text-green-500 px-1 py-1 rounded transition-colors"><i class="fa-solid fa-plus"></i></button>
-                </td>
-                <td class="p-3 text-center whitespace-nowrap">
-                    <button onclick="changePlayerStat('${p.id}', 'red', -1)" class="text-gray-400 hover:text-red-500 px-1 py-1 rounded transition-colors"><i class="fa-solid fa-minus"></i></button>
-                    <span class="${rBadge} inline-block min-w-[20px] text-center">${p.gameReds || 0}</span> 
-                    <button onclick="changePlayerStat('${p.id}', 'red', 1)" class="text-gray-400 hover:text-green-500 px-1 py-1 rounded transition-colors"><i class="fa-solid fa-plus"></i></button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-
-            if (seasonTbody) {
-                const trSeason = document.createElement('tr');
-                trSeason.className = 'border-b hover:bg-purple-50 transition-colors';
-                const totalSeasonTime = (p.seasonTime || 0) + p.timePlayed;
-                const totalSeasonGoals = (p.seasonGoals || 0) + p.gameGoals;
-                const totalSeasonYellows = (p.seasonYellows || 0) + p.gameYellows;
-                const totalSeasonReds = (p.seasonReds || 0) + p.gameReds;
-                
-                trSeason.innerHTML = `
-                    <td class="p-3 font-bold text-gray-800">${p.name}</td>
-                    <td class="p-3 font-mono text-xs text-gray-600" id="stat-season-time-${p.id}">${formatTime(totalSeasonTime)}</td>
-                    <td class="p-3 text-center font-bold text-purple-700">${totalSeasonGoals}</td>
-                    <td class="p-3 text-center font-bold text-yellow-600">${totalSeasonYellows}</td>
-                    <td class="p-3 text-center font-bold text-red-600">${totalSeasonReds}</td>
-                `;
-                seasonTbody.appendChild(trSeason);
-            }
-        });
-    }
-
-    function setMode(mode) {
-        state.mode = mode;
-        const mCtrl = document.getElementById('match-controls');
-        const pitchArea = document.getElementById('pitch-area');
-        const statsPanel = document.getElementById('stats-panel');
-        
-        ['match', 'stats'].forEach(m => {
-            const btn = document.getElementById(`btn-mode-${m}`);
-            if (m === mode) {
-                btn.className = "flex-1 py-1.5 rounded-md text-xs font-bold bg-white shadow-sm text-blue-600 transition-all";
-            } else {
-                btn.className = "flex-1 py-1.5 rounded-md text-xs font-bold text-gray-500 hover:text-blue-600 transition-all bg-transparent";
-            }
-        });
-        
-        mCtrl.classList.add('hidden');
-        pitchArea.classList.add('hidden');
-        statsPanel.classList.add('hidden');
-        
-        if (mode === 'match') {
-            mCtrl.classList.remove('hidden');
-            pitchArea.classList.remove('hidden');
-            pitchArea.classList.add('flex');
-            renderPitch();
-        } else if (mode === 'stats') {
-            statsPanel.classList.remove('hidden');
-            renderStats();
-        }
-    }
-
-    function changeFormation() {
-        state.formation = document.getElementById('formation-select').value;
-        const team = getActiveTeam();
-        const fieldPlayers = team.roster.filter(p => p.status === 'field');
-        const config = formationsConfig[state.formation];
-        
-        if (fieldPlayers.length > config.length) {
-            for(let i = config.length; i < fieldPlayers.length; i++) {
-                fieldPlayers[i].status = 'bench';
-                fieldPlayers[i].positionIndex = null;
-            }
-        }
-        const remaining = team.roster.filter(p => p.status === 'field');
-        remaining.forEach((p, idx) => { p.positionIndex = idx; });
-        
-        saveState();
-        render();
-    }
-
-    function toggleFullScreen() {
-        document.body.classList.toggle('fullscreen-mode');
-    }
-
-    function openShareModal() {
-        document.getElementById('share-modal').classList.add('active');
-        document.getElementById('export-code-box').classList.add('hidden');
-        document.getElementById('import-code-input').value = '';
-    }
-
-    function exportTeamCode() {
-        const team = getActiveTeam();
-        if(!team) return;
-        const jsonString = JSON.stringify(team);
-        const encoded = btoa(encodeURIComponent(jsonString));
-        const box = document.getElementById('export-code-box');
-        box.value = encoded;
-        box.classList.remove('hidden');
-        box.select();
-        try {
-            navigator.clipboard.writeText(encoded);
-            alert("Team code copied to clipboard!");
-        } catch(e) {}
-    }
-
-    function importTeamCode() {
-        const val = document.getElementById('import-code-input').value.trim();
-        if(!val) return alert("Please paste a team code first.");
-        try {
-            const decoded = decodeURIComponent(atob(val));
-            const importedTeam = JSON.parse(decoded);
-            if(!importedTeam.id || !importedTeam.name || !importedTeam.roster) {
-                throw new Error("Invalid format");
-            }
-            importedTeam.id = Date.now().toString(); // assign new unique id
-            state.teams.push(importedTeam);
-            state.activeTeamId = importedTeam.id;
-            saveState();
-            updateTeamSelect();
-            render();
-            closeModal('share-modal');
-            alert(`Successfully imported team: ${importedTeam.name}!`);
-        } catch(e) {
-            alert("Invalid team code. Please check the code and try again.");
-        }
-    }
-
-    document.getElementById('new-player-name').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') addPlayer();
-    });
-
-    window.onload = init;
+</div>
+</div>
+​<script>
+let state = {
+teams: [],
+activeTeamId: null,
+mode: 'match',
+clock: { time: 0, isRunning: false },
+queuedSubs: [],
+formation: '4-4-2',
+drag: { active: false, element: null, type: null, sourceId: null }
+};
+​const formationsConfig = {
+'4-4-2': [ {x:50,y:90}, {x:20,y:75},{x:40,y:75},{x:60,y:75},{x:80,y:75}, {x:20,y:50},{x:40,y:50},{x:60,y:50},{x:80,y:50}, {x:35,y:25},{x:65,y:25} ],
+'4-3-3': [ {x:50,y:90}, {x:20,y:75},{x:40,y:75},{x:60,y:75},{x:80,y:75}, {x:30,y:50},{x:50,y:55},{x:70,y:50}, {x:25,y:25},{x:50,y:20},{x:75,y:25} ],
+'3-5-2': [ {x:50,y:90}, {x:30,y:75},{x:50,y:75},{x:70,y:75}, {x:15,y:50},{x:35,y:55},{x:50,y:45},{x:65,y:55},{x:85,y:50}, {x:35,y:25},{x:65,y:25} ],
+'3-2-3': [ {x:50,y:90}, {x:25,y:75},{x:50,y:75},{x:75,y:75}, {x:35,y:55},{x:65,y:55}, {x:20,y:30},{x:50,y:25},{x:80,y:30} ],
+'3-3-2': [ {x:50,y:90}, {x:25,y:75},{x:50,y:75},{x:75,y:75}, {x:25,y:50},{x:50,y:50},{x:75,y:50}, {x:35,y:25},{x:65,y:25} ],
+'2-4-2': [ {x:50,y:90}, {x:35,y:75},{x:65,y:75}, {x:15,y:50},{x:40,y:50},{x:60,y:50},{x:85,y:50}, {x:35,y:25},{x:65,y:25} ],
+'4-3-1': [ {x:50,y:90}, {x:20,y:75},{x:40,y:75},{x:60,y:75},{x:80,y:75}, {x:25,y:50},{x:50,y:50},{x:75,y:50}, {x:50,y:25} ],
+'2-3-1': [ {x:50,y:90}, {x:35,y:75},{x:65,y:75}, {x:20,y:50},{x:50,y:50},{x:80,y:50}, {x:50,y:25} ],
+'3-2-1': [ {x:50,y:90}, {x:25,y:75},{x:50,y:75},{x:75,y:75}, {x:35,y:50},{x:65,y:50}, {x:50,y:25} ],
+'2-1-2-1': [ {x:50,y:90}, {x:35,y:75},{x:65,y:75}, {x:50,y:60}, {x:30,y:40},{x:70,y:40}, {x:50,y:20} ],
+'3-1-2': [ {x:50,y:90}, {x:25,y:75},{x:50,y:75},{x:75,y:75}, {x:50,y:55}, {x:35,y:25},{x:65,y:25} ],
+'1-4-1': [ {x:50,y:90}, {x:50,y:75}, {x:15,y:50},{x:35,y:50},{x:65,y:50},{x:85,y:50}, {x:50,y:25} ]
+};
+​let localClockInterval = null;
+let lastTickTime = 0;
+let actionPlayerId = null;
+let targetEmptyIndex = null;
+​function init() {
+loadState();
+if (state.teams.length === 0) {
+createDemoTeam();
+}
+updateTeamSelect();
+​if (state.clock.isRunning) {
+lastTickTime = Date.now();
+localClockInterval = setInterval(tick, 1000);
+updateClockButtons(true);
+}
+​render();
+​document.addEventListener('mousemove', onDragMove);
+document.addEventListener('mouseup', onDragEnd);
+document.addEventListener('touchmove', onDragMove, {passive: false});
+document.addEventListener('touchend', onDragEnd);
+}
+​function createDemoTeam() {
+const teamId = Date.now().toString();
+const demoTeam = { id: teamId, name: "Demo Team FC", roster: [] };
+​const demoNames = [
+"GK Alex", "LB Brian", "CB Chris", "CB David", "RB Evan",
+"LM Frank", "CM George", "CM Harry", "RM Ian",
+"ST Jack", "ST Kevin",
+"Liam", "Mike", "Noah", "Owen"
+];
+​demoNames.forEach((name, index) => {
+const isField = index < 11;
+demoTeam.roster.push({
+id: 'demo-' + index,
+name: name,
+timePlayed: 0, seasonTime: 0,
+status: isField ? 'field' : 'bench',
+positionIndex: isField ? index : null,
+gameGoals: 0, seasonGoals: 0,
+gameYellows: 0, seasonYellows: 0,
+gameReds: 0, seasonReds: 0
+});
+});
+​state.teams.push(demoTeam);
+state.activeTeamId = teamId;
+state.formation = '4-4-2';
+saveState();
+}
+​function loadState() {
+const saved = localStorage.getItem('soccerAppStore_v4');
+if (saved) {
+try {
+const parsed = JSON.parse(saved);
+state.teams = parsed.teams || [];
+state.activeTeamId = parsed.activeTeamId;
+state.formation = parsed.formation || '4-4-2';
+state.clock = parsed.clock || { time: 0, isRunning: false };
+state.queuedSubs = parsed.queuedSubs || [];
+if(document.getElementById('formation-select')) {
+document.getElementById('formation-select').value = state.formation;
+}
+} catch(e) {}
+}
+}
+​function saveState() {
+localStorage.setItem('soccerAppStore_v4', JSON.stringify(state));
+}
+​function openConfirm(message, onOkCallback) {
+document.getElementById('confirm-message').innerText = message;
+const modal = document.getElementById('confirm-modal');
+modal.classList.add('active');
+​document.getElementById('btn-confirm-cancel').onclick = () => modal.classList.remove('active');
+document.getElementById('btn-confirm-ok').onclick = () => {
+modal.classList.remove('active');
+if (onOkCallback) onOkCallback();
+};
+}
+​function openPrompt(message, onSaveCallback) {
+document.getElementById('prompt-message').innerText = message;
+const input = document.getElementById('prompt-input');
+input.value = '';
+const modal = document.getElementById('prompt-modal');
+modal.classList.add('active');
+input.focus();
+​document.getElementById('btn-prompt-cancel').onclick = () => modal.classList.remove('active');
+document.getElementById('btn-prompt-ok').onclick = () => {
+if (input.value.trim()) {
+modal.classList.remove('active');
+if (onSaveCallback) onSaveCallback(input.value.trim());
+}
+};
+}
+​function closeModal(id) {
+document.getElementById(id).classList.remove('active');
+}
+​function getActiveTeam() { return state.teams.find(t => t.id === state.activeTeamId); }
+​function createNewTeam(name) {
+const newTeam = { id: Date.now().toString(), name: name, roster: [] };
+state.teams.push(newTeam);
+state.activeTeamId = newTeam.id;
+state.queuedSubs = [];
+state.clock = { time: 0, isRunning: false };
+if (localClockInterval) clearInterval(localClockInterval);
+saveState();
+updateTeamSelect();
+render();
+}
+​function updateTeamSelect() {
+const select = document.getElementById('team-select');
+select.innerHTML = '';
+state.teams.forEach(t => {
+const opt = document.createElement('option');
+opt.value = t.id;
+opt.textContent = t.name;
+if (t.id === state.activeTeamId) opt.selected = true;
+select.appendChild(opt);
+});
+select.onchange = (e) => {
+state.activeTeamId = e.target.value;
+state.queuedSubs = [];
+state.clock = { time: 0, isRunning: false };
+if (localClockInterval) clearInterval(localClockInterval);
+saveState();
+render();
+};
+}
+​function addPlayer() {
+const input = document.getElementById('new-player-name');
+const name = input.value.trim();
+if (!name) return;
+​const team = getActiveTeam();
+const config = formationsConfig[state.formation];
+const fieldCount = team.roster.filter(p => p.status === 'field').length;
+​const newPlayer = {
+id: Date.now().toString(), name: name, timePlayed: 0, seasonTime: 0,
+status: fieldCount < config.length ? 'field' : 'bench',
+positionIndex: fieldCount < config.length ? fieldCount : null,
+gameGoals: 0, seasonGoals: 0,
+gameYellows: 0, seasonYellows: 0,
+gameReds: 0, seasonReds: 0
+};
+​team.roster.push(newPlayer);
+input.value = '';
+saveState();
+render();
+}
+​function formatTime(seconds) {
+const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+const s = (seconds % 60).toString().padStart(2, '0');
+return ${m}:${s};
+}
+​function updateClockButtons(isRunning) {
+const btn = document.getElementById('btn-clock');
+const fsBtn = document.getElementById('fs-btn-clock');
+if (isRunning) {
+btn.innerHTML = '<i class="fa-solid fa-pause"></i> Pause';
+btn.className = "bg-yellow-500 text-yellow-900 px-3 py-2 rounded-lg text-sm font-bold shadow-md hover:bg-yellow-400 transition-colors";
+fsBtn.innerHTML = '<i class="fa-solid fa-pause"></i> Pause';
+fsBtn.className = "bg-yellow-500 text-yellow-900 px-2 py-3 rounded-xl font-bold shadow-lg text-xs md:text-sm flex-1 whitespace-nowrap transition-colors";
+} else {
+btn.innerHTML = '<i class="fa-solid fa-play"></i> Start';
+btn.className = "bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-bold shadow-md hover:bg-green-700 transition-colors";
+fsBtn.innerHTML = '<i class="fa-solid fa-play"></i> Start';
+fsBtn.className = "bg-green-600 text-white px-2 py-3 rounded-xl font-bold shadow-lg text-xs md:text-sm flex-1 whitespace-nowrap transition-colors";
+}
+}
+​function toggleClock() {
+state.clock.isRunning = !state.clock.isRunning;
+updateClockButtons(state.clock.isRunning);
+​if (state.clock.isRunning) {
+lastTickTime = Date.now();
+if(!localClockInterval) localClockInterval = setInterval(tick, 1000);
+} else {
+clearInterval(localClockInterval);
+localClockInterval = null;
+}
+saveState();
+render();
+}
+​function tick() {
+const now = Date.now();
+const deltaSecs = Math.floor((now - lastTickTime) / 1000);
+​if (deltaSecs >= 1) {
+state.clock.time += deltaSecs;
+lastTickTime += (deltaSecs * 1000);
+​const team = getActiveTeam();
+if (team) {
+team.roster.forEach(p => {
+if (p.status === 'field') {
+p.timePlayed += deltaSecs;
+​const token = document.getElementById(token-${p.id});
+if (token) {
+const timeBadge = token.querySelector('.time-badge');
+if (timeBadge) timeBadge.innerText = formatTime(p.timePlayed);
+}
+if (state.mode === 'stats') {
+const statRowTime = document.getElementById(stat-time-${p.id});
+if (statRowTime) statRowTime.innerText = formatTime(p.timePlayed);
+const statSeasonTime = document.getElementById(stat-season-time-${p.id});
+if (statSeasonTime) statSeasonTime.innerText = formatTime((p.seasonTime || 0) + p.timePlayed);
+}
+const rosterRowTime = document.getElementById(roster-time-${p.id});
+if (rosterRowTime) rosterRowTime.innerText = formatTime(p.timePlayed);
+}
+});
+}
+​document.getElementById('clock-display').innerText = formatTime(state.clock.time);
+document.getElementById('fs-clock').innerText = formatTime(state.clock.time);
+​if (state.clock.time % 5 === 0) saveState();
+}
+}
+​function resetClock() {
+state.clock.time = 0;
+state.clock.isRunning = false;
+if(localClockInterval) clearInterval(localClockInterval);
+localClockInterval = null;
+updateClockButtons(false);
+document.getElementById('clock-display').innerText = "00:00";
+document.getElementById('fs-clock').innerText = "00:00";
+saveState();
+render();
+}
+​function endGame() {
+const team = getActiveTeam();
+if (team) {
+team.roster.forEach(p => {
+p.seasonTime = (p.seasonTime || 0) + (p.timePlayed || 0);
+p.seasonGoals = (p.seasonGoals || 0) + (p.gameGoals || 0);
+p.seasonYellows = (p.seasonYellows || 0) + (p.gameYellows || 0);
+p.seasonReds = (p.seasonReds || 0) + (p.gameReds || 0);
+​p.gameGoals = 0; p.gameYellows = 0; p.gameReds = 0;
+p.timePlayed = 0;
+});
+state.clock.time = 0;
+state.clock.isRunning = false;
+if(localClockInterval) clearInterval(localClockInterval);
+localClockInterval = null;
+​setMode('stats');
+saveState();
+render();
+}
+}
+​function render() {
+renderBench();
+if(state.mode !== 'stats') renderPitch();
+if(state.mode === 'stats') renderStats();
+updateQueueCounts();
+​document.getElementById('clock-display').innerText = formatTime(state.clock.time);
+document.getElementById('fs-clock').innerText = formatTime(state.clock.time);
+updateClockButtons(state.clock.isRunning);
+}
+​function renderBench() {
+const team = getActiveTeam();
+const list = document.getElementById('bench-list');
+list.innerHTML = '';
+if (!team) return;
+​const sortedRoster = [...team.roster].sort((a, b) => {
+if (a.status === b.status) return a.name.localeCompare(b.name);
+return a.status === 'field' ? -1 : 1;
+});
+​sortedRoster.forEach(p => {
+const isQueued = state.queuedSubs.some(q => q.onId === p.id || q.offId === p.id);
+const div = document.createElement('div');
+div.className = p-2 border rounded-xl flex justify-between items-center shadow-sm transition-colors ${isQueued ? 'bg-yellow-50 border-yellow-300' : 'bg-white'};
+​const currentGoals = p.gameGoals || 0;
+const totalSeasonGoals = (p.seasonGoals || 0) + currentGoals;
+const totalSeasonYellows = (p.seasonYellows || 0) + (p.gameYellows || 0);
+const totalSeasonReds = (p.seasonReds || 0) + (p.gameReds || 0);
+​let statString = <span class="text-blue-600 font-semibold">⚽ Match: ${currentGoals}</span> <span class="text-gray-300 mx-1">|</span> <span class="text-purple-600 font-semibold"><i class="fa-solid fa-trophy"></i> Season: ${totalSeasonGoals}</span>;
+if (totalSeasonYellows > 0) statString += <span class="text-yellow-600 font-semibold ml-2 text-[10px]">🟨 ${totalSeasonYellows}</span>;
+if (totalSeasonReds > 0) statString += <span class="text-red-600 font-semibold ml-1 text-[10px]">🟥 ${totalSeasonReds}</span>;
+​const statusBadge = p.status === 'field'
+? '<span class="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Field</span>'
+: '<span class="bg-gray-100 text-gray-500 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Bench</span>';
+​div.innerHTML = <div class="flex-1 cursor-pointer pr-2" onclick="openPlayerActionModal('${p.id}')"> <div class="font-bold text-sm text-gray-800 flex items-center gap-2"> ${p.name}  ${statusBadge} ${isQueued ? '<span class="text-[10px] text-yellow-600 font-bold uppercase tracking-wider">(Queued)</span>' : ''} </div> <div class="flex gap-3 text-xs text-gray-500 mt-1"> <span id="roster-time-${p.id}" class="font-mono bg-gray-100 px-1 rounded">${formatTime(p.timePlayed)}</span> <span>${statString}</span> </div> </div> <button onclick="openConfirm('Remove ${p.name} from roster?', () => removePlayer('${p.id}'))" class="text-red-400 hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg transition-colors"><i class="fa-solid fa-trash"></i></button>;
+list.appendChild(div);
+});
+}
+​function removePlayer(id) {
+const team = getActiveTeam();
+team.roster = team.roster.filter(p => p.id !== id);
+state.queuedSubs = state.queuedSubs.filter(q => q.onId !== id && q.offId !== id);
+saveState();
+render();
+}
+​function renderPitch() {
+const team = getActiveTeam();
+const pitch = document.getElementById('pitch');
+document.querySelectorAll('.player-token').forEach(el => el.remove());
+if (!team) return;
+​const fieldPlayers = team.roster.filter(p => p.status === 'field');
+const config = formationsConfig[state.formation];
+​fieldPlayers.forEach(p => {
+const token = document.createElement('div');
+const isQueued = state.queuedSubs.some(q => q.offId === p.id);
+token.className = player-token ${isQueued ? 'queued' : ''};
+token.id = token-${p.id};
+​const pos = config[p.positionIndex] || {x:50, y:50};
+token.style.left = ${pos.x}%;
+token.style.top = ${pos.y}%;
+​const nameInitial = p.name.substring(0, 3).toUpperCase();
+​let badges = '';
+if (p.gameGoals > 0) badges += <span class="stat-badge badge-goal">⚽${p.gameGoals}</span>;
+if (p.gameYellows > 0) badges += <span class="stat-badge badge-yellow">${p.gameYellows}</span>;
+if (p.gameReds > 0) badges += <span class="stat-badge badge-red">${p.gameReds}</span>;
+​token.innerHTML = ${badges ?<div class="stat-badge-container">${badges}</div>: ''} <div class="font-bold leading-tight mt-1">${nameInitial}</div> <div class="time-badge font-mono text-[9px] leading-tight text-blue-100">${formatTime(p.timePlayed)}</div>;
+​token.onmousedown = (e) => startDrag(e, p.id);
+token.ontouchstart = (e) => startDrag(e, p.id);
+pitch.appendChild(token);
+});
+​if (state.mode === 'match' && fieldPlayers.length < config.length) {
+const occupiedIndices = fieldPlayers.map(p => p.positionIndex);
+for (let i = 0; i < config.length; i++) {
+if (!occupiedIndices.includes(i)) {
+const empty = document.createElement('div');
+empty.className = 'player-token bg-gray-200 border-dashed border-gray-400 text-gray-500 opacity-60';
+empty.style.left = ${config[i].x}%;
+empty.style.top = ${config[i].y}%;
+empty.innerHTML = <i class="fa-solid fa-plus fa-lg"></i>;
+empty.dataset.positionIndex = i;
+​empty.onmousedown = (e) => { e.preventDefault(); openEmptyPositionModal(i); };
+empty.ontouchstart = (e) => { e.preventDefault(); openEmptyPositionModal(i); };
+​pitch.appendChild(empty);
+}
+}
+}
+}
+​function startDrag(e, playerId) {
+const ev = e.touches ? e.touches[0] : e;
+state.drag = {
+active: true, id: playerId, startX: ev.clientX, startY: ev.clientY, isClick: true,
+token: document.getElementById(token-${playerId})
+};
+}
+​function onDragMove(e) {
+if (!state.drag.active) return;
+const ev = e.touches ? e.touches[0] : e;
+const dx = ev.clientX - state.drag.startX;
+const dy = ev.clientY - state.drag.startY;
+​if (Math.abs(dx) > 5 || Math.abs(dy) > 5) state.drag.isClick = false;
+​if (!state.drag.isClick) {
+e.preventDefault();
+const pitch = document.getElementById('pitch');
+const rect = pitch.getBoundingClientRect();
+let x = ((ev.clientX - rect.left) / rect.width) * 100;
+let y = ((ev.clientY - rect.top) / rect.height) * 100;
+x = Math.max(0, Math.min(100, x)); y = Math.max(0, Math.min(100, y));
+​state.drag.token.style.left = ${x}%;
+state.drag.token.style.top = ${y}%;
+state.drag.currentX = x; state.drag.currentY = y;
+}
+}
+​function onDragEnd(e) {
+if (!state.drag.active) return;
+​if (state.drag.isClick) {
+openPlayerActionModal(state.drag.id);
+} else {
+const team = getActiveTeam();
+const player = team.roster.find(p => p.id === state.drag.id);
+const ev = e.changedTouches ? e.changedTouches[0] : e;
+​state.drag.token.style.visibility = 'hidden';
+const dropTarget = document.elementFromPoint(ev.clientX, ev.clientY);
+state.drag.token.style.visibility = 'visible';
+​const targetToken = dropTarget ? dropTarget.closest('.player-token') : null;
+​if (targetToken && targetToken.id !== token-${state.drag.id}) {
+if (targetToken.id && targetToken.id.startsWith('token-')) {
+const targetId = targetToken.id.replace('token-', '');
+const targetPlayer = team.roster.find(p => p.id === targetId);
+if (targetPlayer) {
+const temp = player.positionIndex;
+player.positionIndex = targetPlayer.positionIndex;
+targetPlayer.positionIndex = temp;
+}
+} else if (targetToken.dataset.positionIndex !== undefined) {
+player.positionIndex = parseInt(targetToken.dataset.positionIndex);
+}
+}
+saveState();
+renderPitch();
+}
+state.drag.active = false;
+}
+​function openPlayerActionModal(playerId) {
+actionPlayerId = playerId;
+targetEmptyIndex = null;
+const team = getActiveTeam();
+const p = team.roster.find(x => x.id === playerId);
+​document.getElementById('action-player-name').innerText = p.name;
+document.getElementById('action-stat-container').classList.remove('hidden');
+​document.getElementById('action-val-goal').innerText = p.gameGoals || 0;
+document.getElementById('action-val-yellow').innerText = p.gameYellows || 0;
+document.getElementById('action-val-red').innerText = p.gameReds || 0;
+​const list = document.getElementById('action-bench-list');
+list.innerHTML = '';
+​if (p.status === 'field') {
+document.getElementById('action-sub-container').classList.remove('hidden');
+document.getElementById('action-sub-title').innerText = "Substitute With:";
+const benchPlayers = team.roster.filter(x => x.status === 'bench');
+​if (benchPlayers.length === 0) {
+list.innerHTML = '<div class="text-sm text-gray-500 italic">No players available on bench.</div>';
+} else {
+benchPlayers.forEach(b => {
+if (state.queuedSubs.some(q => q.onId === b.id)) return;
+​const div = document.createElement('div');
+div.className = 'flex justify-between items-center p-2 border rounded-lg hover:bg-gray-50 mb-1';
+div.innerHTML = <div class="text-sm font-bold text-gray-700">${b.name} <span class="text-xs font-normal text-gray-500 ml-1 font-mono">${formatTime(b.timePlayed)}</span></div> <div class="flex gap-2"> <button onclick="queueSub('${p.id}', '${b.id}')" class="bg-yellow-100 text-yellow-700 hover:bg-yellow-200 px-3 py-1.5 rounded text-xs font-bold transition-colors">Queue</button> <button onclick="executeImmediateSub('${p.id}', '${b.id}')" class="bg-blue-600 text-white hover:bg-blue-700 px-3 py-1.5 rounded text-xs font-bold shadow-sm transition-colors">Sub Now</button> </div>;
+list.appendChild(div);
+});
+}
+} else {
+document.getElementById('action-sub-container').classList.add('hidden');
+}
+​document.getElementById('player-action-modal').classList.add('active');
+}
+​function openEmptyPositionModal(positionIndex) {
+targetEmptyIndex = positionIndex;
+actionPlayerId = null;
+​document.getElementById('action-player-name').innerText = "Fill Empty Position";
+document.getElementById('action-stat-container').classList.add('hidden');
+document.getElementById('action-sub-container').classList.remove('hidden');
+document.getElementById('action-sub-title').innerText = "Select Player to Field:";
+​const team = getActiveTeam();
+const list = document.getElementById('action-bench-list');
+list.innerHTML = '';
+​const benchPlayers = team.roster.filter(x => x.status === 'bench');
+if (benchPlayers.length === 0) {
+list.innerHTML = '<div class="text-sm text-gray-500 italic p-2 text-center">No players available on bench.</div>';
+} else {
+benchPlayers.forEach(b => {
+const div = document.createElement('div');
+div.className = 'flex justify-between items-center p-2 border rounded-lg hover:bg-gray-50 mb-1';
+div.innerHTML = <div class="text-sm font-bold text-gray-700">${b.name} <span class="text-xs font-normal text-gray-500 ml-1 font-mono">${formatTime(b.timePlayed)}</span></div> <button onclick="fillPositionWith('${b.id}')" class="bg-green-600 text-white hover:bg-green-700 px-4 py-1.5 rounded text-xs font-bold shadow-sm transition-colors">Add to Field</button>;
+list.appendChild(div);
+});
+}
+​document.getElementById('player-action-modal').classList.add('active');
+}
+​function fillPositionWith(benchPlayerId) {
+const team = getActiveTeam();
+const p = team.roster.find(x => x.id === benchPlayerId);
+if(p && targetEmptyIndex !== null) {
+p.status = 'field';
+p.positionIndex = targetEmptyIndex;
+targetEmptyIndex = null;
+closeModal('player-action-modal');
+saveState();
+render();
+}
+}
+​window.changePlayerStat = function(playerId, type, delta) {
+if(!playerId) return;
+const team = getActiveTeam();
+const p = team.roster.find(x => x.id === playerId);
+if(!p) return;
+​if (type === 'goal') p.gameGoals = Math.max(0, (p.gameGoals || 0) + delta);
+if (type === 'yellow') p.gameYellows = Math.max(0, (p.gameYellows || 0) + delta);
+if (type === 'red') p.gameReds = Math.max(0, (p.gameReds || 0) + delta);
+​if (actionPlayerId === playerId) {
+const valEl = document.getElementById(action-val-${type});
+if(valEl) valEl.innerText = p[game${type.charAt(0).toUpperCase() + type.slice(1)}s] || 0;
+}
+​saveState();
+render();
+}
+​function queueSub(offId, onId) {
+state.queuedSubs.push({ offId, onId });
+closeModal('player-action-modal');
+saveState();
+render();
+}
+​function executeImmediateSub(offId, onId) {
+const team = getActiveTeam();
+const offPlayer = team.roster.find(p => p.id === offId);
+const onPlayer = team.roster.find(p => p.id === onId);
+​onPlayer.status = 'field';
+onPlayer.positionIndex = offPlayer.positionIndex;
+​offPlayer.status = 'bench';
+offPlayer.positionIndex = null;
+​closeModal('player-action-modal');
+saveState();
+render();
+}
+​function updateQueueCounts() {
+document.getElementById('queue-count').innerText = state.queuedSubs.length;
+document.getElementById('fs-queue-count').innerText = state.queuedSubs.length;
+}
+​function openBatchQueue() {
+const list = document.getElementById('batch-queue-list');
+list.innerHTML = '';
+const team = getActiveTeam();
+​if (state.queuedSubs.length === 0) {
+list.innerHTML = '<div class="text-gray-500 italic p-4 text-center bg-gray-50 rounded-lg">Queue is empty.</div>';
+} else {
+state.queuedSubs.forEach((sub, index) => {
+const offP = team.roster.find(p => p.id === sub.offId);
+const onP = team.roster.find(p => p.id === sub.onId);
+const div = document.createElement('div');
+div.className = 'flex justify-between items-center p-3 border rounded-xl bg-yellow-50 border-yellow-200';
+div.innerHTML = <div class="flex-1 flex justify-between px-2 items-center"> <span class="text-red-600 font-bold text-sm"><i class="fa-solid fa-arrow-down mr-1"></i> ${offP.name}</span> <i class="fa-solid fa-right-left text-gray-400 text-xs"></i> <span class="text-green-700 font-bold text-sm"><i class="fa-solid fa-arrow-up mr-1"></i> ${onP.name}</span> </div> <button onclick="removeQueuedSub(${index})" class="text-gray-400 hover:text-red-600 px-3 py-1 rounded transition-colors"><i class="fa-solid fa-xmark"></i></button>;
+list.appendChild(div);
+});
+}
+document.getElementById('batch-modal').classList.add('active');
+}
+​function removeQueuedSub(index) {
+state.queuedSubs.splice(index, 1);
+openBatchQueue();
+saveState();
+render();
+}
+​function executeBatchSubs() {
+if(state.queuedSubs.length === 0) return closeModal('batch-modal');
+const team = getActiveTeam();
+state.queuedSubs.forEach(sub => {
+const offPlayer = team.roster.find(p => p.id === sub.offId);
+const onPlayer = team.roster.find(p => p.id === sub.onId);
+if (offPlayer && onPlayer) {
+onPlayer.status = 'field';
+onPlayer.positionIndex = offPlayer.positionIndex;
+offPlayer.status = 'bench'; offPlayer.positionIndex = null;
+}
+});
+state.queuedSubs = [];
+closeModal('batch-modal');
+saveState();
+render();
+}
+​function renderStats() {
+const team = getActiveTeam();
+const tbody = document.getElementById('stats-tbody');
+const seasonTbody = document.getElementById('stats-season-tbody');
+tbody.innerHTML = '';
+if(seasonTbody) seasonTbody.innerHTML = '';
+if (!team) return;
+​team.roster.forEach(p => {
+const tr = document.createElement('tr');
+tr.className = 'border-b hover:bg-blue-50 transition-colors';
+​const gBadge = p.gameGoals > 0 ? 'bg-green-100 text-green-800 rounded-full font-bold px-1' : 'px-1';
+const yBadge = p.gameYellows > 0 ? 'bg-yellow-100 text-yellow-800 rounded-full font-bold px-1' : 'px-1';
+const rBadge = p.gameReds > 0 ? 'bg-red-100 text-red-800 rounded-full font-bold px-1' : 'px-1';
+​tr.innerHTML = <td class="p-3 font-bold text-gray-800">${p.name}</td> <td class="p-3 font-mono text-xs text-gray-600" id="stat-time-${p.id}">${formatTime(p.timePlayed)}</td> <td class="p-3 text-center whitespace-nowrap"> <button onclick="changePlayerStat('${p.id}', 'goal', -1)" class="text-gray-400 hover:text-red-500 px-1 py-1 rounded transition-colors"><i class="fa-solid fa-minus"></i></button> <span class="${gBadge} inline-block min-w-[20px] text-center">${p.gameGoals || 0}</span>  <button onclick="changePlayerStat('${p.id}', 'goal', 1)" class="text-gray-400 hover:text-green-500 px-1 py-1 rounded transition-colors"><i class="fa-solid fa-plus"></i></button> </td> <td class="p-3 text-center whitespace-nowrap"> <button onclick="changePlayerStat('${p.id}', 'yellow', -1)" class="text-gray-400 hover:text-red-500 px-1 py-1 rounded transition-colors"><i class="fa-solid fa-minus"></i></button> <span class="${yBadge} inline-block min-w-[20px] text-center">${p.gameYellows || 0}</span>  <button onclick="changePlayerStat('${p.id}', 'yellow', 1)" class="text-gray-400 hover:text-green-500 px-1 py-1 rounded transition-colors"><i class="fa-solid fa-plus"></i></button> </td> <td class="p-3 text-center whitespace-nowrap"> <button onclick="changePlayerStat('${p.id}', 'red', -1)" class="text-gray-400 hover:text-red-500 px-1 py-1 rounded transition-colors"><i class="fa-solid fa-minus"></i></button> <span class="${rBadge} inline-block min-w-[20px] text-center">${p.gameReds || 0}</span>  <button onclick="changePlayerStat('${p.id}', 'red', 1)" class="text-gray-400 hover:text-green-500 px-1 py-1 rounded transition-colors"><i class="fa-solid fa-plus"></i></button> </td>;
+tbody.appendChild(tr);
+​if (seasonTbody) {
+const trSeason = document.createElement('tr');
+trSeason.className = 'border-b hover:bg-purple-50 transition-colors';
+const totalSeasonTime = (p.seasonTime || 0) + p.timePlayed;
+const totalSeasonGoals = (p.seasonGoals || 0) + p.gameGoals;
+const totalSeasonYellows = (p.seasonYellows || 0) + p.gameYellows;
+const totalSeasonReds = (p.seasonReds || 0) + p.gameReds;
+​trSeason.innerHTML = <td class="p-3 font-bold text-gray-800">${p.name}</td> <td class="p-3 font-mono text-xs text-gray-600" id="stat-season-time-${p.id}">${formatTime(totalSeasonTime)}</td> <td class="p-3 text-center font-bold text-purple-700">${totalSeasonGoals}</td> <td class="p-3 text-center font-bold text-yellow-600">${totalSeasonYellows}</td> <td class="p-3 text-center font-bold text-red-600">${totalSeasonReds}</td>;
+seasonTbody.appendChild(trSeason);
+}
+});
+}
+​function setMode(mode) {
+state.mode = mode;
+const mCtrl = document.getElementById('match-controls');
+const pitchArea = document.getElementById('pitch-area');
+const statsPanel = document.getElementById('stats-panel');
+​['match', 'stats'].forEach(m => {
+const btn = document.getElementById(btn-mode-${m});
+if (m === mode) {
+btn.className = "flex-1 py-1.5 rounded-md text-xs font-bold bg-white shadow-sm text-blue-600 transition-all";
+} else {
+btn.className = "flex-1 py-1.5 rounded-md text-xs font-bold text-gray-500 hover:text-blue-600 transition-all bg-transparent";
+}
+});
+​mCtrl.classList.add('hidden');
+pitchArea.classList.add('hidden');
+statsPanel.classList.add('hidden');
+​if (mode === 'match') {
+mCtrl.classList.remove('hidden');
+pitchArea.classList.remove('hidden');
+pitchArea.classList.add('flex');
+renderPitch();
+} else if (mode === 'stats') {
+statsPanel.classList.remove('hidden');
+renderStats();
+}
+}
+​function changeFormation() {
+state.formation = document.getElementById('formation-select').value;
+const team = getActiveTeam();
+const fieldPlayers = team.roster.filter(p => p.status === 'field');
+const config = formationsConfig[state.formation];
+​if (fieldPlayers.length > config.length) {
+for(let i = config.length; i < fieldPlayers.length; i++) {
+fieldPlayers[i].status = 'bench';
+fieldPlayers[i].positionIndex = null;
+}
+}
+const remaining = team.roster.filter(p => p.status === 'field');
+remaining.forEach((p, idx) => { p.positionIndex = idx; });
+​saveState();
+render();
+}
+​function toggleFullScreen() {
+document.body.classList.toggle('fullscreen-mode');
+}
+​function openShareModal() {
+document.getElementById('share-modal').classList.add('active');
+document.getElementById('export-code-box').classList.add('hidden');
+document.getElementById('import-code-input').value = '';
+}
+​function exportTeamCode() {
+const team = getActiveTeam();
+if(!team) return;
+const jsonString = JSON.stringify(team);
+const encoded = btoa(encodeURIComponent(jsonString));
+const box = document.getElementById('export-code-box');
+box.value = encoded;
+box.classList.remove('hidden');
+box.select();
+try {
+navigator.clipboard.writeText(encoded);
+alert("Team code copied to clipboard!");
+} catch(e) {}
+}
+​function importTeamCode() {
+const val = document.getElementById('import-code-input').value.trim();
+if(!val) return alert("Please paste a team code first.");
+try {
+const decoded = decodeURIComponent(atob(val));
+const importedTeam = JSON.parse(decoded);
+if(!importedTeam.id || !importedTeam.name || !importedTeam.roster) {
+throw new Error("Invalid format");
+}
+importedTeam.id = Date.now().toString();
+state.teams.push(importedTeam);
+state.activeTeamId = importedTeam.id;
+saveState();
+updateTeamSelect();
+render();
+closeModal('share-modal');
+alert(Successfully imported team: ${importedTeam.name}!);
+} catch(e) {
+alert("Invalid team code. Please check the code and try again.");
+}
+}
+​document.getElementById('new-player-name').addEventListener('keypress', function(e) {
+if (e.key === 'Enter') addPlayer();
+});
+​window.onload = init;
 </script>
 </body>
 </html>
