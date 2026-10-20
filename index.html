@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Soccer Management App</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; overflow-x: hidden; touch-action: manipulation; }
+.pitch-container { position: relative; background: #4ade80; border: 2px solid white; border-radius: 8px; width: 100%; aspect-ratio: 2/3; max-height: calc(100dvh - 220px); margin: 0 auto; overflow: hidden; background-image: linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px); background-size: 10% 10%; }
+.pitch-line-center { position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: white; transform: translateY(-50%); }
+.pitch-circle { position: absolute; top: 50%; left: 50%; width: 20%; aspect-ratio: 1; border: 2px solid white; border-radius: 50%; transform: translate(-50%, -50%); }
+.penalty-area-top, .penalty-area-bottom { position: absolute; width: 50%; height: 15%; border: 2px solid white; left: 25%; }
+.penalty-area-top { top: 0; border-top: none; }
+.penalty-area-bottom { bottom: 0; border-bottom: none; }
+.player-token { position: absolute; width: 44px; height: 44px; background: #3b82f6; color: white; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; transform: translate(-50%, -50%); cursor: grab; user-select: none; z-index: 10; font-size: 0.75rem; box-shadow: 0 3px 6px rgba(0,0,0,0.4); border: 2px solid white; }
+.player-token * { pointer-events: none; }
+.player-token.queued { border-color: #fbbf24; box-shadow: 0 0 12px #fbbf24; animation: pulse 1.5s infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.7); } 70% { box-shadow: 0 0 0 12px rgba(251, 191, 36, 0); } 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); } }
+.fullscreen-mode .pitch-container { position: fixed; top: 0; left: 0; width: 100vw; height: calc(100dvh - 80px); max-height: none; z-index: 50; border-radius: 0; border-bottom: 2px solid white; aspect-ratio: auto; }
+.fullscreen-mode .ui-panel { display: none; }
+.fullscreen-mode .fs-controls { display: flex; flex-direction: row; position: fixed; bottom: 0; left: 0; width: 100vw; height: 80px; z-index: 60; background: #111827; padding: 10px 16px; border-radius: 0; justify-content: space-between; align-items: center; gap: 8px; box-shadow: 0 -4px 15px rgba(0,0,0,0.5); }
+.modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; padding: 1rem; backdrop-filter: blur(2px); }
+.modal.active { display: flex !important; }
+.fs-controls { display: none; }
+.stat-badge-container { position: absolute; top: -8px; right: -8px; display: flex; gap: 2px; }
+.stat-badge { font-size: 10px; padding: 1px 4px; border-radius: 999px; font-weight: bold; box-shadow: 0 1px 2px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.5); }
+.badge-goal { background: white; color: black; }
+.badge-yellow { background: #facc15; color: #854d0e; }
+.badge-red { background: #ef4444; color: white; }
+</style>
+</head>
+<body class="text-gray-800 flex flex-col h-screen overflow-hidden">
+<header class="bg-white shadow-sm border-b px-4 py-3 flex justify-between items-center z-20 shrink-0">
+<h1 class="text-xl md:text-2xl font-bold text-blue-700 whitespace-nowrap overflow-hidden text-ellipsis"><i class="fa-solid fa-futbol"></i> Soccer Management App</h1>
+<button onclick="openShareModal()" class="bg-blue-50 border border-blue-200 text-blue-700 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shadow-sm hover:bg-blue-100 transition-colors">
+<i class="fa-solid fa-share-nodes"></i> Share & Export Team
+</button>
+</header>
+<div class="max-w-7xl mx-auto w-full p-2 md:p-4 flex flex-col md:flex-row gap-4 h-full overflow-hidden">
+<!-- Left Panel -->
+<div class="w-full md:w-1/3 bg-white rounded-xl shadow-md p-4 flex flex-col h-full overflow-y-auto ui-panel shrink-0">
+<!-- Teams Select -->
+<div class="mb-4">
+<div class="flex gap-2">
+<select id="team-select" class="w-full border rounded-lg p-2 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none"></select>
+<button onclick="openPrompt('Enter new team name:', createNewTeam)" class="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 shadow-sm"><i class="fa-solid fa-plus"></i></button>
+</div>
+</div>
+<!-- Tabs & Modes -->
+<div class="flex gap-1 mb-4 bg-gray-100 p-1 rounded-lg shrink-0">
+<button onclick="setMode('match')" id="btn-mode-match" class="flex-1 py-1.5 rounded-md text-xs font-bold bg-white shadow-sm text-blue-600 transition-all">Match Live</button>
+<button onclick="setMode('stats')" id="btn-mode-stats" class="flex-1 py-1.5 rounded-md text-xs font-bold text-gray-500 hover:text-blue-600 transition-all">Stats</button>
+</div>
+<!-- Match Controls -->
+<div id="match-controls" class="mb-4 p-3 bg-blue-50 rounded-xl border border-blue-100 shadow-inner shrink-0">
+<div class="flex justify-between items-center mb-3">
+<span class="font-bold text-3xl font-mono text-blue-900 tracking-wider" id="clock-display">00:00</span>
+<div class="flex gap-2">
+<button onclick="toggleClock()" id="btn-clock" class="bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-bold shadow-md hover:bg-green-700 transition-colors"><i class="fa-solid fa-play"></i> Start</button>
+<button onclick="openConfirm('End game and save stats to season totals? This will reset match clock, timers, and current game stats.', endGame)" class="bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-bold shadow-md hover:bg-purple-700 transition-colors whitespace-nowrap"><i class="fa-solid fa-flag-checkered"></i> End Game</button>
+<button onclick="openConfirm('Reset match clock to 00:00? (Stats will NOT be saved)', resetClock)" class="bg-red-500 text-white px-3 py-2 rounded-lg text-sm shadow-md hover:bg-red-600" title="Reset Clock"><i class="fa-solid fa-rotate-left"></i></button>
+</div>
+</div>
+<div class="flex justify-between items-center mb-2">
+<select id="formation-select" onchange="changeFormation()" class="border rounded-lg p-1.5 text-sm w-[48%] bg-white font-medium">
+<optgroup label="11v11">
+<option value="4-4-2">4-4-2</option>
+<option value="4-3-3">4-3-3</option>
+<option value="3-5-2">3-5-2</option>
+</optgroup>
+<optgroup label="9v9">
+<option value="3-2-3">3-2-3</option>
+<option value="3-3-2">3-3-2</option>
+<option value="2-4-2">2-4-2</option>
+<option value="4-3-1">4-3-1</option>
+</optgroup>
+<optgroup label="7v7">
+<option value="2-3-1">2-3-1</option>
+<option value="3-2-1">3-2-1</option>
+<option value="2-1-2-1">2-1-2-1</option>
+<option value="3-1-2">3-1-2</option>
+<option value="1-4-1">1-4-1</option>
+</optgroup>
+</select>
+<button onclick="toggleFullScreen()" class="bg-gray-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-900"><i class="fa-solid fa-expand"></i> Pitch</button>
+</div>
+<button onclick="openBatchQueue()" class="w-full bg-yellow-500 text-yellow-900 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-yellow-400 mt-1"><i class="fa-solid fa-list-check"></i> Subs Queue (<span id="queue-count">0</span>)</button>
+</div>
+<!-- Roster Panel -->
+<div id="roster-panel" class="flex-1 flex flex-col min-h-0">
+<div class="flex justify-between items-end border-b pb-1 mb-2">
+<h2 class="font-bold text-gray-700">Full Roster</h2>
+</div>
+<div class="flex gap-1 mb-3 shrink-0">
+<input type="text" id="new-player-name" placeholder="Add Player..." class="border rounded-lg px-3 py-1.5 flex-1 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none">
+<button onclick="addPlayer()" class="bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 shadow-sm"><i class="fa-solid fa-plus"></i></button>
+</div>
+<div id="bench-list" class="flex-1 overflow-y-auto space-y-2 pr-1 pb-4">
+</div>
+</div>
+</div>
+<!-- Pitch View -->
+<div id="pitch-area" class="w-full md:w-2/3 flex items-center justify-center relative">
+<div class="fs-controls text-white">
+<div class="text-xl md:text-2xl font-mono text-center tracking-widest text-green-400 font-bold w-16 shrink-0" id="fs-clock">00:00</div>
+<button onclick="toggleClock()" id="fs-btn-clock" class="bg-green-600 px-2 py-3 rounded-xl font-bold shadow-lg text-xs md:text-sm flex-1 whitespace-nowrap transition-colors"><i class="fa-solid fa-play"></i> Start</button>
+<button onclick="openBatchQueue()" class="bg-yellow-500 text-yellow-900 px-2 py-3 rounded-xl font-bold shadow-lg text-xs md:text-sm flex-1 whitespace-nowrap hover:bg-yellow-400 transition-colors"><i class="fa-solid fa-list-check"></i> Subs (<span id="fs-queue-count">0</span>)</button>
+<button onclick="toggleFullScreen()" class="bg-red-500 px-2 py-3 rounded-xl font-bold shadow-lg text-xs md:text-sm flex-1 whitespace-nowrap hover:bg-red-600 transition-colors"><i class="fa-solid fa-compress"></i> Exit</button>
+</div>
+<div class="pitch-container shadow-xl" id="pitch">
+<div class="pitch-line-center"></div>
+<div class="pitch-circle"></div>
+<div class="penalty-area-top"></div>
+<div class="penalty-area-bottom"></div>
+</div>
+</div>
+<!-- Stats View -->
+<div id="stats-panel" class="hidden w-full md:w-2/3 bg-white rounded-xl shadow-md p-4 flex flex-col h-full overflow-y-auto shrink-0 border">
+<div class="flex justify-between items-center mb-6 shrink-0 border-b pb-4">
+<div>
+<h2 class="font-bold text-2xl text-blue-900"><i class="fa-solid fa-chart-simple"></i> Match & Season Stats</h2>
+<p class="text-sm text-gray-500">Track goals, cards, and playing time live.</p>
+</div>
+</div>
+<h3 class="font-bold text-lg text-blue-800 mb-3"><i class="fa-solid fa-stopwatch"></i> Current Match</h3>
+<div class="overflow-x-auto bg-gray-50 rounded-lg border shadow-inner mb-6">
+<table class="w-full text-left text-sm border-collapse min-w-[550px]">
+<thead>
+<tr class="bg-gray-200 text-gray-700">
+<th class="p-3 border-b font-bold">Player</th>
+<th class="p-3 border-b font-bold">Time</th>
+<th class="p-3 border-b font-bold text-center">⚽ Goals</th>
+<th class="p-3 border-b font-bold text-center">🟨 YC</th>
+<th class="p-3 border-b font-bold text-center">🟥 RC</th>
+</tr>
+</thead>
+<tbody id="stats-tbody" class="divide-y divide-gray-200 bg-white">
+</tbody>
+</table>
+</div>
+<h3 class="font-bold text-xl text-purple-800 mb-3 mt-8 border-t pt-6"><i class="fa-solid fa-trophy text-yellow-500"></i> Season Totals (All Games)</h3>
+<div class="overflow-x-auto bg-purple-50 rounded-lg border border-purple-200 shadow-inner">
+<table class="w-full text-left text-sm border-collapse min-w-[550px]">
+<thead>
+<tr class="bg-purple-200 text-purple-900">
+<th class="p-3 border-b border-purple-300 font-bold">Player</th>
+<th class="p-3 border-b border-purple-300 font-bold">Total Time</th>
+<th class="p-3 border-b border-purple-300 font-bold text-center">⚽ Goals</th>
+<th class="p-3 border-b border-purple-300 font-bold text-center">🟨 YC</th>
+<th class="p-3 border-b border-purple-300 font-bold text-center">🟥 RC</th>
+</tr>
+</thead>
+<tbody id="stats-season-tbody" class="divide-y divide-purple-200 bg-white">
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Player Action Modal -->
+<div id="player-action-modal" class="modal hidden" style="display: none;">
+<div class="bg-white rounded-2xl p-5 w-80 max-w-full m-4 shadow-2xl transform transition-all">
+<div class="flex justify-between items-center mb-4">
+<h3 class="font-bold text-xl text-blue-800"><span id="action-player-name"></span></h3>
+<button onclick="closeModal('player-action-modal')" class="text-gray-400 hover:text-gray-600 p-1"><i class="fa-solid fa-xmark fa-lg"></i></button>
+</div>
+<div id="action-stat-container">
+<h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Record Match Stat</h4>
+<div class="space-y-2 mb-6">
+<div class="flex justify-between items-center bg-gray-50 border border-gray-200 rounded-xl p-2 shadow-sm">
+<div class="flex items-center gap-2 w-1/3"><span class="text-xl">⚽</span> <span class="text-[10px] font-bold text-gray-700 uppercase">Goals</span></div>
+<div class="flex items-center justify-end gap-3 flex-1">
+<button onclick="changePlayerStat(actionPlayerId, 'goal', -1)" class="w-8 h-8 rounded-full bg-white border shadow-sm text-gray-600 font-bold hover:bg-red-50 hover:text-red-500 transition-colors">-</button>
+<span id="action-val-goal" class="font-bold font-mono w-4 text-center text-lg">0</span>
+<button onclick="changePlayerStat(actionPlayerId, 'goal', 1)" class="w-8 h-8 rounded-full bg-white border shadow-sm text-gray-600 font-bold hover:bg-green-50 hover:text-green-500 transition-colors">+</button>
+</div>
+</div>
+<div class="flex justify-between items-center bg-gray-50 border border-gray-200 rounded-xl p-2 shadow-sm">
+<div class="flex items-center gap-2 w-1/3"><span class="text-xl">🟨</span> <span class="text-[10px] font-bold text-gray-700 uppercase">Yellow</span></div>
+<div class="flex items-center justify-end gap-3 flex-1">
+<button onclick="changePlayerStat(actionPlayerId, 'yellow', -1)" class="w-8 h-8 rounded-full bg-white border shadow-sm text-gray-600 font-bold hover:bg-red-50 hover:text-red-500 transition-colors">-</button>
+<span id="action-val-yellow" class="font-bold font-mono w-4 text-center text-lg">0</span>
+<button onclick="changePlayerStat(actionPlayerId, 'yellow', 1)" class="w-8 h-8 rounded-full bg-white border shadow-sm text-gray-600 font-bold hover:bg-green-50 hover:text-green-500 transition-colors">+</button>
+</div>
+</div>
+<div class="flex justify-between items-center bg-gray-50 border border-gray-200 rounded-xl p-2 shadow-sm">
+<div class="flex items-center gap-2 w-1/3"><span class="text-xl">🟥</span> <span class="text-[10px] font-bold text-gray-700 uppercase">Red</span></div>
+<div class="flex items-center justify-end gap-3 flex-1">
+<button onclick="changePlayerStat(actionPlayerId, 'red', -1)" class="w-8 h-8 rounded-full bg-white border shadow-sm text-gray-600 font-bold hover:bg-red-50 hover:text-red-500 transition-colors">-</button>
+<span id="action-val-red" class="font-bold font-mono w-4 text-center text-lg">0</span>
+<button onclick="changePlayerStat(actionPlayerId, 'red', 1)" class="w-8 h-8 rounded-full bg-white border shadow-sm text-gray-600 font-bold hover:bg-green-50 hover:text-green-500 transition-colors">+</button>
+</div>
+</div>
+</div>
+</div>
+<div id="action-sub-container">
+<h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider border-b pb-1 mb-2" id="action-sub-title">Substitute With:</h4>
+<div id="action-bench-list" class="max-h-48 overflow-y-auto space-y-1 pr-1 pb-2">
+</div>
+</div>
+</div>
+</div>
+<!-- Batch Queue Modal -->
+<div id="batch-modal" class="modal hidden" style="display: none;">
+<div class="bg-white rounded-2xl p-5 w-96 max-w-full m-4 shadow-2xl">
+<div class="flex justify-between items-center mb-4 border-b pb-2">
+<h3 class="font-bold text-xl text-yellow-600"><i class="fa-solid fa-list-check"></i> Subs Queue</h3>
+<button onclick="closeModal('batch-modal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark fa-lg"></i></button>
+</div>
+<div id="batch-queue-list" class="space-y-2 mb-6 max-h-64 overflow-y-auto pr-1"></div>
+<button onclick="executeBatchSubs()" class="w-full bg-green-600 text-white py-3 rounded-xl font-bold shadow-md hover:bg-green-700"><i class="fa-solid fa-check"></i> Execute All Subs Now</button>
+</div>
+</div>
+<!-- Share & Export Team Modal -->
+<div id="share-modal" class="modal hidden" style="display: none;">
+<div class="bg-white rounded-2xl p-6 w-96 max-w-full m-4 shadow-2xl">
+<div class="flex justify-between mb-4 items-center border-b pb-2">
+<h3 class="font-bold text-xl text-blue-900"><i class="fa-solid fa-share-nodes"></i> Share Team Code</h3>
+<button onclick="closeModal('share-modal')" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark fa-lg"></i></button>
+</div>
+<p class="text-xs text-gray-600 mb-4 leading-relaxed">Export your team code to send to co-coaches via text, or paste a code sent by another coach below.</p>
+<div class="mb-5 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+<h4 class="font-bold text-blue-900 mb-1 text-sm">Export Current Team</h4>
+<p class="text-[11px] text-blue-700 mb-3">Copy team code to share via text or chat.</p>
+<button onclick="exportTeamCode()" class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-bold shadow-sm hover:bg-blue-700 text-sm">Copy Team Code</button>
+<input type="text" id="export-code-box" readonly class="mt-2 w-full border rounded p-2 text-xs font-mono bg-white text-center hidden select-all">
+</div>
+<div class="p-4 bg-green-50 border border-green-200 rounded-xl">
+<h4 class="font-bold text-green-900 mb-1 text-sm">Import Team Code</h4>
+<p class="text-[11px] text-green-700 mb-3">Paste a team code sent by another coach.</p>
+<textarea id="import-code-input" rows="2" placeholder="Paste code here..." class="w-full border-2 border-green-200 rounded-lg p-2 font-mono text-xs focus:border-green-500 focus:outline-none mb-2"></textarea>
+<button onclick="importTeamCode()" class="w-full bg-green-600 text-white py-2.5 rounded-lg font-bold shadow-sm hover:bg-green-700 text-sm">Import Team Now</button>
+</div>
+</div>
+</div>
+<!-- Generic Confirm Modal -->
+<div id="confirm-modal" class="modal hidden" style="display: none;">
+<div class="bg-white rounded-2xl p-6 w-80 max-w-full m-4 text-center shadow-2xl">
+<div class="text-4xl text-yellow-500 mb-3"><i class="fa-solid fa-circle-exclamation"></i></div>
+<p id="confirm-message" class="mb-6 text-gray-800 font-medium"></p>
+<div class="flex gap-3 justify-center">
+<button id="btn-confirm-cancel" class="flex-1 py-2.5 bg-gray-100 rounded-xl text-gray-700 font-bold hover:bg-gray-200">Cancel</button>
+<button id="btn-confirm-ok" class="flex-1 py-2.5 bg-blue-600 rounded-xl text-white font-bold shadow-md hover:bg-blue-700">OK</button>
+</div>
+</div>
+</div>
+<!-- Generic Prompt Modal -->
+<div id="prompt-modal" class="modal hidden" style="display: none;">
+<div class="bg-white rounded-2xl p-6 w-80 max-w-full m-4 shadow-2xl">
+<p id="prompt-message" class="mb-3 text-gray-800 font-bold"></p>
+<input type="text" id="prompt-input" class="w-full border-2 rounded-xl p-3 mb-5 focus:outline-none focus:border-blue-500 transition-colors">
+<div class="flex gap-3 justify-end">
+<button id="btn-prompt-cancel" class="flex-1 py-2.5 bg-gray-100 rounded-xl text-gray-700 font-bold hover:bg-gray-200">Cancel</button>
+<button id="btn-prompt-ok" class="flex-1 py-2.5 bg-blue-600 rounded-xl text-white font-bold shadow-md hover:bg-blue-700">Save</button>
+</div>
+</div>
+</div>
+<script>
+let state = {
+teams: [],
+activeTeamId: null,
+mode: 'match',
+clock: { time: 0, isRunning: false },
+queuedSubs: [],
+formation: '4-4-2',
+drag: { active: false, element: null, type: null, sourceId: null }
+};
+const formationsConfig = {
+'4-4-2': [ {x:50,y:90}, {x:20,y:75},{x:40,y:75},{x:60,y:75},{x:80,y:75}, {x:20,y:50},{x:40,y:50},{x:60,y:50},{x:80,y:50}, {x:35,y:25},{x:65,y:25} ],
+'4-3-3': [ {x:50,y:90}, {x:20,y:75},{x:40,y:75},{x:60,y:75},{x:80,y:75}, {x:30,y:50},{x:50,y:55},{x:70,y:50}, {x:25,y:25},{x:50,y:20},{x:75,y:25} ],
+'3-5-2': [ {x:50,y:90}, {x:30,y:75},{x:50,y:75},{x:70,y:75}, {x:15,y:50},{x:35,y:55},{x:50,y:45},{x:65,y:55},{x:85,y:50}, {x:35,y:25},{x:65,y:25} ],
+'3-2-3': [ {x:50,y:90}, {x:25,y:75},{x:50,y:75},{x:75,y:75}, {x:35,y:55},{x:65,y:55}, {x:20,y:30},{x:50,y:25},{x:80,y:30} ],
+'3-3-2': [ {x:50,y:90}, {x:25,y:75},{x:50,y:75},{x:75,y:75}, {x:25,y:50},{x:50,y:50},{x:75,y:50}, {x:35,y:25},{x:65,y:25} ],
+'2-4-2': [ {x:50,y:90}, {x:35,y:75},{x:65,y:75}, {x:15,y:50},{x:40,y:50},{x:60,y:50},{x:85,y:50}, {x:35,y:25},{x:65,y:25} ],
+'4-3-1': [ {x:50,y:90}, {x:20,y:75},{x:40,y:75},{x:60,y:75},{x:80,y:75}, {x:25,y:50},{x:50,y:50},{x:75,y:50}, {x:50,y:25} ],
+'2-3-1': [ {x:50,y:90}, {x:35,y:75},{x:65,y:75}, {x:20,y:50
